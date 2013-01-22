@@ -1,12 +1,14 @@
 package ch.fhnw.imvs.trails
 
+import collection.concurrent.RDCSS_Descriptor
+
 trait Trails {
   type Environment
   type PathElement
 
   type Path = List[PathElement]
 
-  case class Trace(path: Path, visitedPaths: Option[Set[Path]])
+  case class Trace(path: Path, namedSubpaths: Map[String, List[Path]], visitedPaths: Option[Set[Path]])
 
   type Traverser = Environment => Trace => Stream[Trace]
 
@@ -36,16 +38,25 @@ trait Trails {
   private def internal_many1(tr: Traverser): Traverser = {
     env => t => {
       val size = t.path.size
-      tr(env)(t).flatMap { case Trace(path, Some(visitedPaths)) =>
+      tr(env)(t).flatMap { case Trace(path, namedSubpaths, Some(visitedPaths)) =>
         val currentEvaluation = path.take(path.size - size)
         if (visitedPaths(currentEvaluation)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else internal_many(tr)(env)(Trace(path, Some(visitedPaths + currentEvaluation)))
+        else internal_many(tr)(env)(Trace(path, namedSubpaths, Some(visitedPaths + currentEvaluation)))
       }
     }
   }
 
   private def internal_many(tr: Traverser): Traverser =
     choice(accept, internal_many1(tr))
+
+  def name(name: String, tr: Traverser): Traverser =
+    env => t => {
+      val size = t.path.size
+      tr(env)(t).map { case Trace(path, namedSubpaths, visitedPaths) =>
+        val currentEvaluation = path.take(path.size - size)
+        Trace(path, namedSubpaths.updated(name, currentEvaluation :: namedSubpaths.getOrElse(name, Nil)), visitedPaths)
+      }
+    }
 
   def accept: Traverser =
     _ => t => Stream(t)
@@ -57,7 +68,7 @@ trait Trails {
     env => t => if(p(t)) Stream(t) else Stream()
 
   def filterHead(p: PathElement => Boolean): Traverser =
-    filter(t => t match { case Trace(head :: rest, _) => p(head)} )
+    filter(t => t match { case Trace(head :: rest, _, _) => p(head)} )
 
   // Infix syntax
   implicit class Syntax(t1: Traverser) {
@@ -67,7 +78,9 @@ trait Trails {
     def * : Traverser = many(t1)
     def + : Traverser = many1(t1)
 
-    def run(s: Environment) = t1(s)(Trace(Nil, None))
+    def as(n: String): Traverser = name(n, t1)
+
+    def run(s: Environment) = t1(s)(Trace(Nil, Map(), None))
   }
 }
 

@@ -69,5 +69,43 @@ class BlueprintTrailsTest extends FunSuite {
     assert(paths.size === 1)
     assert(paths.head === List(v0))
   }
+
+  test("names") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    val v1 = graph.addVertex("v1")
+    val v2 = graph.addVertex("v2")
+    val v3 = graph.addVertex("v3")
+
+    val e0 = graph.addEdge("e0", v0, v1, "e")
+    val e1 = graph.addEdge("e1", v1, v3, "e")
+    val e2 = graph.addEdge("e2", v0, v2, "e")
+    val e3 = graph.addEdge("e3", v2, v3, "e")
+
+    val f0 = graph.addEdge("f0", v1, v1, "f")
+
+
+    val expr0 = V("v0") ~ outE("e").as("es") ~ inV().as("vs") ~ out("e")
+    val traces = expr0.run(graph)
+
+    val paths = traces.map(t => t.path.reverse)
+
+    assert(paths.size === 2)
+
+    val table = traces.foldLeft(Map[String, List[Path]]()){ case (acc, Trace(_, namedSubPaths, _)) =>
+      acc ++ namedSubPaths.map{ case (k,v) => (k, (v ++ acc.getOrElse(k,Nil))) }
+    }
+
+    assert(table.size === 2)
+    assert(table.contains("es"))
+    assert(table("es").size === 2)
+    assert(table("es").contains(List(e0)))
+    assert(table("es").contains(List(e2)))
+
+    assert(table.contains("vs"))
+    assert(table("vs").size === 2)
+    assert(table("vs").contains(List(v1)))
+    assert(table("vs").contains(List(v2)))
+  }
 }
 
