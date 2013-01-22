@@ -17,7 +17,7 @@ The following combinators are supported:
 * Purely functional: No mutable state, no surprises!
 * Lazy: Compute only as much information as required!
 * Cycle aware: Avoid spinning in a circle!
-* Supports different graph APIs ([blueprints](https://github.com/tinkerpop/blueprints/wiki) already included)
+* Supports different graph APIs ([blueprints](https://github.com/tinkerpop/blueprints/wiki) and [neo4j](http://www.neo4j.org/) are already included)
 
 ##Example##
 
