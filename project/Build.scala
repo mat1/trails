@@ -24,8 +24,7 @@ object TrailsBuild extends Build with BuildSettings {
     name := "trails neo4j",
     version := "0.1",
     libraryDependencies ++= Seq(
-      "org.neo4j" % "neo4j-kernel" % "1.8.1",
-      "org.neo4j" % "neo4j-kernel" % "1.8.1" % "test" classifier "tests"
+      "org.neo4j" % "neo4j-kernel" % "1.8.1" classifier "" classifier "tests"
     )
   )) dependsOn(core % "test->test;compile->compile")
 }
