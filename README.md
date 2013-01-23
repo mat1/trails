@@ -3,6 +3,8 @@ trails
 
 Purely functional graph traversal combinators written in Scala.
 
+[![Build Status](https://secure.travis-ci.org/danielkroeni/trails.png?branch=master)](http://travis-ci.org/danielkroeni/trails)
+
 trails is applying the idea of [parser combinators](http://en.wikipedia.org/wiki/Parser_combinator) to graph traversals.
 The following combinators are supported:
 
