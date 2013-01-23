@@ -64,6 +64,9 @@ trait BlueprintTrails extends Trails {
     case e:Edge => "-" + e.getId.toString + "-"
   }
 
+  def formatPath(p: Path): String =
+    p.reverse.map(format).mkString("["," ","]")
+
   def show(t: Trace): String =
     "Trace" + t.path.reverse.map(format).mkString("["," ","]")
 }
