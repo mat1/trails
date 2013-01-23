@@ -1,9 +1,7 @@
-trails
+trails [![Build Status](https://secure.travis-ci.org/danielkroeni/trails.png?branch=master)](http://travis-ci.org/danielkroeni/trails)
 ======
 
 Purely functional graph traversal combinators written in Scala.
-
-[![Build Status](https://secure.travis-ci.org/danielkroeni/trails.png?branch=master)](http://travis-ci.org/danielkroeni/trails)
 
 trails is applying the idea of [parser combinators](http://en.wikipedia.org/wiki/Parser_combinator) to graph traversals.
 The following combinators are supported:
@@ -22,7 +20,7 @@ The following combinators are supported:
 * Supports different graph APIs ([blueprints](https://github.com/tinkerpop/blueprints/wiki) and [neo4j](http://www.neo4j.org/) are already included)
 
 ##Example##
-
+```scala
     test("Cycles") {
       val graph = new TinkerGraph()
       val v0 = graph.addVertex("v0")
@@ -43,6 +41,6 @@ The following combinators are supported:
       assert(paths.contains(List(v0, e0, v0, f0, v0)))
       assert(paths.contains(List(v0, e0, v0, f0, v0, e0, v0, f1, v0)))
     }
-
+```
 
 trails adapted many ideas (especially method names) from [gremlin](https://github.com/tinkerpop/gremlin/wiki).
