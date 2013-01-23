@@ -124,11 +124,12 @@ class BlueprintTrailsTest extends FunSuite {
           (name, maxSize, col)
         }
 
-        val headerLine = colls.map { case (name, maxSize, _) => name.padTo(maxSize, " ").mkString }.mkString("|","|","|")
+        val headerLine = colls.map { case (name, maxSize, _) => name.padTo(maxSize, " ").mkString }
         val data = for(i <- 0 until rows.size) yield {
-          colls.map {case (name, maxSize, col) => col(i).padTo(maxSize, " ").mkString }.mkString("|","|","|")
+          colls.map {case (name, maxSize, col) => col(i).padTo(maxSize, " ").mkString }
         }
-        headerLine + "\n" + ("-" * headerLine.size) + "\n" + data.mkString("\n")
+        val separatorLine = colls.map { case (name, maxSize, _) => "-" * maxSize }
+        (separatorLine +: headerLine +: separatorLine +: data :+ separatorLine).map(_.mkString("|","|","|")).mkString("\n")
       }
     }
 
