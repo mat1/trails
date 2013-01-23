@@ -4,11 +4,20 @@ import com.tinkerpop.blueprints.Direction._
 import com.tinkerpop.blueprints._
 import scala.collection.JavaConversions._
 import ch.fhnw.imvs.trails.Trails
+import scalaz.Show
 
 trait BlueprintTrails extends Trails {
 
   type Environment = Graph
   type PathElement = Element
+
+
+  implicit val showElement: Show[PathElement] = new Show[PathElement] {
+    override def shows(e: PathElement) = e match {
+      case v:Vertex => v.getId.toString
+      case e:Edge => "-" + e.getId.toString + "-"
+    }
+  }
 
   // Gremlin like operations
   def outE(edgeName: String): Traverser =
@@ -58,15 +67,4 @@ trait BlueprintTrails extends Trails {
 
   def matches(pattern: Traverser): Traverser =
     env => filter(t => pattern(env)(t).nonEmpty)(env)
-
-  def format(e: PathElement): String = e match {
-    case v:Vertex => v.getId.toString
-    case e:Edge => "-" + e.getId.toString + "-"
-  }
-
-  def formatPath(p: Path): String =
-    p.reverse.map(format).mkString("["," ","]")
-
-  def show(t: Trace): String =
-    "Trace" + t.path.reverse.map(format).mkString("["," ","]")
 }

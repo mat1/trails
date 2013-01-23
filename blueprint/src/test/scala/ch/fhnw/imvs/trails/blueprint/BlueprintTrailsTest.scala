@@ -113,26 +113,6 @@ class BlueprintTrailsTest extends FunSuite {
   }
 
   test("table") {
-    case class Table(private val traces: Stream[Trace]) {
-      val headers: Vector[String] = traces.foldLeft(Set[String]())((acc, t) => acc ++ t.namedSubpaths.keys).toVector.sorted
-      def rows: Vector[Vector[List[Path]]] = traces.toVector.map(t => headers.map(h => t.namedSubpaths.getOrElse(h, Nil)))
-
-      def pretty(): String = {
-        val colls = for((name, index) <- headers.zipWithIndex ) yield {
-          val col = rows.map(row => row(index).map(formatPath).toString)
-          val maxSize = col.map(_.size).max
-          (name, maxSize, col)
-        }
-
-        val headerLine = colls.map { case (name, maxSize, _) => name.padTo(maxSize, " ").mkString }
-        val data = for(i <- 0 until rows.size) yield {
-          colls.map {case (name, maxSize, col) => col(i).padTo(maxSize, " ").mkString }
-        }
-        val separatorLine = colls.map { case (name, maxSize, _) => "-" * maxSize }
-        (separatorLine +: headerLine +: separatorLine +: data :+ separatorLine).map(_.mkString("|","|","|")).mkString("\n")
-      }
-    }
-
     val graph = new TinkerGraph()
     val v0 = graph.addVertex("v0")
     val v1 = graph.addVertex("v1")
@@ -152,7 +132,7 @@ class BlueprintTrailsTest extends FunSuite {
     val traces = expr0.run(graph)
 
     val table = Table(traces)
-    println(table.pretty())
+    println(table.pretty)
 
    // assert(table.headers.size === 2)
    // assert(table.headers.sameElements(Seq("es", "vs")))

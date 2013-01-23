@@ -5,12 +5,13 @@ Purely functional graph traversal combinators written in Scala.
 
 trails is applying the idea of [parser combinators](http://en.wikipedia.org/wiki/Parser_combinator) to graph traversals.
 The following combinators are supported:
-
+```scala
     t1 ~ t2     // Sequence
     t1 | t2     // Choice
     t.?         // Optionality
     t.*         // Repetition 0..n
     t.+         // Repetition 1..n
+```
 
 ##Features##
 
