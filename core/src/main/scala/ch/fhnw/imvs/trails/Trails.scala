@@ -15,7 +15,7 @@ trait Trails {
   type Path = List[PathElement]
 
   /** Also a path through the graph but with additional bookkeeping for named sub-paths and cycle detection. */
-  case class Trace(path: Path, namedSubPaths: Map[String, List[Path]], visitedPaths: Option[Set[Path]])
+  case class Trace(path: Path, visitedPaths: Option[Set[Path]])
 
   type State
 
@@ -83,30 +83,12 @@ trait Trails {
     env => ts => {
       val (trace, state) = ts
       val size = trace.path.size
-      tr(env)(ts).flatMap { case (Trace(path, namedSubPaths, Some(visitedPaths)), state) =>
+      tr(env)(ts).flatMap { case (Trace(path, Some(visitedPaths)), state) =>
         val currentEvaluation = path.take(path.size - size)
         if (visitedPaths(currentEvaluation)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else internal_many(tr)(env)((Trace(path, namedSubPaths, Some(visitedPaths + currentEvaluation)), state))
+        else internal_many(tr)(env)((Trace(path, Some(visitedPaths + currentEvaluation)), state))
       }
     }
-
-
-
-  /** Returns a traverser which stores the generated sub-paths in a map with the given name as the key.
-    * @param name the name under which the sub-path is stored in the map
-    * @param tr the traverser
-    * @return a traverser which stores the generated sub-paths in a map
-    */
-  def name(name: String, tr: Traverser): Traverser =
-    env => ts => {
-      val (trace, state) = ts
-      val size = trace.path.size
-      tr(env)(ts).map { case (Trace(path, namedSubPaths, visitedPaths), state) =>
-        val currentEvaluation = path.take(path.size - size)
-        (Trace(path, namedSubPaths.updated(name, currentEvaluation :: namedSubPaths.getOrElse(name, Nil)), visitedPaths), state)
-      }
-    }
-
 
 
   /** Returns a traverser which returns its input as the output.
@@ -133,7 +115,7 @@ trait Trails {
     * @return a traverser which filters the head of its input trace
     */
   def filterHead(p: PathElement => Boolean): Traverser =
-    filter(t => t match { case (Trace(head :: rest, _, _), state) => p(head)} )
+    filter(t => t match { case (Trace(head :: rest, _), state) => p(head)} )
 
 
 
@@ -145,35 +127,7 @@ trait Trails {
     def * : Traverser = many(t1)
     def + : Traverser = many1(t1)
 
-    def as(n: String): Traverser = name(n, t1)
-
-    def run(e: Environment, s: State) = t1(e)((Trace(Nil, Map(), None),s))
-  }
-
-
-
-  /**
-   * A table representation of the named parts of a Stream of Traces.
-   * @param traces the traces
-   */
-  case class Table(private val traces: Stream[Trace]) {
-    val headers: Vector[String] = traces.foldLeft(Set[String]())((acc, t) => acc ++ t.namedSubPaths.keys).toVector.sorted
-    def rows: Vector[Vector[List[Path]]] = traces.toVector.map(t => headers.map(h => t.namedSubPaths.getOrElse(h, Nil)))
-
-    def pretty(implicit showPathElem: Show[PathElement]): String = {
-      val colls = for((name, index) <- headers.zipWithIndex ) yield {
-        val col = rows.map(row => row(index).map(Show[Path].shows).toString)
-        val maxSize = col.map(_.size).max
-        (name, maxSize, col)
-      }
-
-      val headerLine = colls.map { case (name, maxSize, _) => name.padTo(maxSize, " ").mkString }
-      val data = for(i <- 0 until rows.size) yield {
-        colls.map {case (name, maxSize, col) => col(i).padTo(maxSize, " ").mkString }
-      }
-      val separatorLine = colls.map { case (name, maxSize, _) => "-" * maxSize }
-      (separatorLine +: headerLine +: separatorLine +: data :+ separatorLine).map(_.mkString("|","|","|")).mkString("\n")
-    }
+    def run(e: Environment, s: State) = t1(e)((Trace(Nil, None),s))
   }
 
   // Show instances

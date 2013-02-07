@@ -3,14 +3,13 @@ package ch.fhnw.imvs.trails.blueprint
 import com.tinkerpop.blueprints.Direction._
 import com.tinkerpop.blueprints._
 import scala.collection.JavaConversions._
-import ch.fhnw.imvs.trails.Trails
+import ch.fhnw.imvs.trails.{Tables, Trails}
 import scalaz.Show
 
-trait BlueprintTrails extends Trails {
+trait BlueprintTrails extends Trails with Tables {
 
   type Environment = Graph
   type PathElement = Element
-  type State = Unit
 
 
   implicit val showElement: Show[PathElement] = new Show[PathElement] {
@@ -29,8 +28,8 @@ trait BlueprintTrails extends Trails {
 
   private def ontoE(edgeName: String, dir: Direction): Traverser =
     e => ts => ts match {
-      case (t@Trace(((head: Vertex) :: rest), namedSubpaths, visitedPaths), state) =>
-        head.getEdges(dir, edgeName).toStream.map { edge => (Trace((edge :: t.path), namedSubpaths, visitedPaths), state) }
+      case (t@Trace(((head: Vertex) :: rest), visitedPaths), state) =>
+        head.getEdges(dir, edgeName).toStream.map { edge => (Trace((edge :: t.path), visitedPaths), state) }
     }
 
   def outV(): Traverser =
@@ -41,8 +40,8 @@ trait BlueprintTrails extends Trails {
 
   private def ontoV(dir: Direction): Traverser =
     _ => ts => ts match {
-      case (t@Trace(((head: Edge) :: rest), namedSubpaths, visitedPaths), state) =>
-        Stream((Trace((head.getVertex(dir) :: t.path), namedSubpaths, visitedPaths),state))
+      case (t@Trace(((head: Edge) :: rest), visitedPaths), state) =>
+        Stream((Trace((head.getVertex(dir) :: t.path), visitedPaths),state))
     }
 
   def out(edgeName: String): Traverser =
@@ -52,16 +51,16 @@ trait BlueprintTrails extends Trails {
     seq(inE(edgeName), outV())
 
   def V(): Traverser =
-    env => ts => env.getVertices.toStream.map(v => (Trace(List(v), Map(), None), ts._2))
+    env => ts => env.getVertices.toStream.map(v => (Trace(List(v), None), ts._2))
 
   def V(id: AnyRef): Traverser =
-    env => ts => Stream((Trace(List(env.getVertex(id)), Map(), None), ts._2))
+    env => ts => Stream((Trace(List(env.getVertex(id)), None), ts._2))
 
   def E(): Traverser =
-    env => ts => env.getEdges.toStream.map(v => (Trace(List(v), Map(), None), ts._2))
+    env => ts => env.getEdges.toStream.map(v => (Trace(List(v), None), ts._2))
 
   def E(id: AnyRef): Traverser =
-    env => ts => Stream((Trace(List(env.getEdge(id)), Map(), None), ts._2))
+    env => ts => Stream((Trace(List(env.getEdge(id)), None), ts._2))
 
   def has(name: String, value: Any): Traverser =
     filterHead(elem => elem.getPropertyKeys.contains(name) && elem.getProperty(name) == value)

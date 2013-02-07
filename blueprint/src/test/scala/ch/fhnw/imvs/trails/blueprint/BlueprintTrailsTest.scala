@@ -16,7 +16,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V("v0") ~ (out("e").+ ~ out("f")).+
 
-    val traces = expr0.run(graph,())
+    val traces = expr0.run(graph)
     val paths = traces.map(t => t._1.path.reverse)
 
     assert(paths.size === 4)
@@ -42,7 +42,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~ out("f") ~ out("g") ~ out("e")
 
-    val traces = expr0.run(graph, ())
+    val traces = expr0.run(graph)
     val paths = traces.map(t => t._1.path.reverse)
 
     assert(paths.size === 1)
@@ -63,7 +63,7 @@ class BlueprintTrailsTest extends FunSuite {
 
 
     val expr0 = V ~ matches(out("e") ~ out("f") ~ out("g") ~ out("e"))
-    val traces = expr0.run(graph, ())
+    val traces = expr0.run(graph)
     val paths = traces.map(t => t._1.path.reverse)
 
     assert(paths.size === 1)
@@ -86,13 +86,13 @@ class BlueprintTrailsTest extends FunSuite {
 
 
     val expr0 = V("v0") ~ outE("e").as("es") ~ inV().as("vs") ~ out("e")
-    val traces = expr0.run(graph, ())
+    val traces = expr0.run(graph)
 
     val paths = traces.map(t => t._1.path.reverse)
 
     assert(paths.size === 2)
 
-    val mergedNamedSubPaths = traces.foldLeft(Map[String, List[Path]]()){ case (acc, (Trace(_, namedSubPaths, _),_)) =>
+    val mergedNamedSubPaths = traces.foldLeft(Map[String, List[Path]]()){ case (acc, (Trace(_, _), namedSubPaths)) =>
       acc ++ namedSubPaths.map{ case (k,v) => (k, (v ++ acc.getOrElse(k,Nil))) }
     }
 
@@ -127,9 +127,9 @@ class BlueprintTrailsTest extends FunSuite {
     graph.addEdge("e4", v2, v4, "e")
 
     val expr0 = V("v0") ~ out("e").as("out(e)").+ ~ outE("e").as("outE(e)").?
-    val traces = expr0.run(graph, ())
+    val traces = expr0.run(graph)
 
-    val table = Table(traces.map(_._1))
+    val table = ScalaTable(traces)
     println(table.pretty)
   }
 }
