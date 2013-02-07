@@ -17,11 +17,13 @@ trait Trails {
   /** Also a path through the graph but with additional bookkeeping for named sub-paths and cycle detection. */
   case class Trace(path: Path, namedSubPaths: Map[String, List[Path]], visitedPaths: Option[Set[Path]])
 
+  type State
+
   /** A Traverser is a function which takes an Environment (we may use a Reader monad),
     * an input Trace and produces a Stream of subsequent Traces.
     * Traverser is THE compositional unit in trails.
     */
-  type Traverser = Environment => Trace => Stream[Trace]
+  type Traverser = Environment => Pair[Trace, State] => Stream[Pair[Trace, State]]
 
 
 
@@ -64,28 +66,30 @@ trait Trails {
     withCycleDetection(internal_many1(tr))
 
   private def withCycleDetection(tr: Traverser): Traverser = {
-    env => t =>
+    env => ts =>
+      val (trace, state) = ts
       // store the set of already visited paths
-      val currentVisitedEdges = t.visitedPaths
+      val currentVisitedEdges = trace.visitedPaths
       // run the given traverser within a new context
-      val res = tr(env)(t.copy(visitedPaths = Some(Set())))
+      val res = tr(env)((trace.copy(visitedPaths = Some(Set())),state))
       // restore the set of already visited paths
-      res.map(_.copy(visitedPaths = currentVisitedEdges))
+      res.map { case (t, s) => (t.copy(visitedPaths = currentVisitedEdges), s) }
   }
 
   private def internal_many(tr: Traverser): Traverser =
     choice(accept, internal_many1(tr))
 
-  private def internal_many1(tr: Traverser): Traverser = {
-    env => t => {
-      val size = t.path.size
-      tr(env)(t).flatMap { case Trace(path, namedSubPaths, Some(visitedPaths)) =>
+  private def internal_many1(tr: Traverser): Traverser =
+    env => ts => {
+      val (trace, state) = ts
+      val size = trace.path.size
+      tr(env)(ts).flatMap { case (Trace(path, namedSubPaths, Some(visitedPaths)), state) =>
         val currentEvaluation = path.take(path.size - size)
         if (visitedPaths(currentEvaluation)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else internal_many(tr)(env)(Trace(path, namedSubPaths, Some(visitedPaths + currentEvaluation)))
+        else internal_many(tr)(env)((Trace(path, namedSubPaths, Some(visitedPaths + currentEvaluation)), state))
       }
     }
-  }
+
 
 
   /** Returns a traverser which stores the generated sub-paths in a map with the given name as the key.
@@ -94,11 +98,12 @@ trait Trails {
     * @return a traverser which stores the generated sub-paths in a map
     */
   def name(name: String, tr: Traverser): Traverser =
-    env => t => {
-      val size = t.path.size
-      tr(env)(t).map { case Trace(path, namedSubPaths, visitedPaths) =>
+    env => ts => {
+      val (trace, state) = ts
+      val size = trace.path.size
+      tr(env)(ts).map { case (Trace(path, namedSubPaths, visitedPaths), state) =>
         val currentEvaluation = path.take(path.size - size)
-        Trace(path, namedSubPaths.updated(name, currentEvaluation :: namedSubPaths.getOrElse(name, Nil)), visitedPaths)
+        (Trace(path, namedSubPaths.updated(name, currentEvaluation :: namedSubPaths.getOrElse(name, Nil)), visitedPaths), state)
       }
     }
 
@@ -120,7 +125,7 @@ trait Trails {
     * @param p the predicate
     * @return a traverser which filters its input trace
     */
-  def filter(p: Trace => Boolean): Traverser =
+  def filter(p: Pair[Trace,State] => Boolean): Traverser =
     env => t => if(p(t)) Stream(t) else Stream()
 
   /** Returns a traverser which filters the head of its input trace using the given predicate.
@@ -128,7 +133,7 @@ trait Trails {
     * @return a traverser which filters the head of its input trace
     */
   def filterHead(p: PathElement => Boolean): Traverser =
-    filter(t => t match { case Trace(head :: rest, _, _) => p(head)} )
+    filter(t => t match { case (Trace(head :: rest, _, _), state) => p(head)} )
 
 
 
@@ -142,7 +147,7 @@ trait Trails {
 
     def as(n: String): Traverser = name(n, t1)
 
-    def run(s: Environment) = t1(s)(Trace(Nil, Map(), None))
+    def run(e: Environment, s: State) = t1(e)((Trace(Nil, Map(), None),s))
   }
 
 

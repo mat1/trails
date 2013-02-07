@@ -10,6 +10,7 @@ import scala.collection.JavaConversions._
 trait Neo4jTrails extends Trails {
   type Environment = GraphDatabaseService
   type PathElement = PropertyContainer
+  type State = Unit
 
   // Gremlin like operations
   def outE(edgeName: String): Traverser =
@@ -19,9 +20,9 @@ trait Neo4jTrails extends Trails {
     ontoE(edgeName, INCOMING)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser =
-    e => t => t match {
-      case Trace(((head: Node) :: rest), namedSubpaths, visitedPaths) =>
-        head.getRelationships(DynamicRelationshipType.withName(edgeName), dir).toStream.map { edge => Trace((edge :: t.path), namedSubpaths, visitedPaths) }
+    e => ts => ts match {
+      case (t@Trace(((head: Node) :: rest), namedSubpaths, visitedPaths), state) =>
+        head.getRelationships(DynamicRelationshipType.withName(edgeName), dir).toStream.map { edge => (Trace((edge :: t.path), namedSubpaths, visitedPaths), state) }
     }
 
   def outV(): Traverser =
@@ -31,9 +32,9 @@ trait Neo4jTrails extends Trails {
     ontoV(INCOMING)
 
   private def ontoV(dir: Direction): Traverser =
-    _ => t => t match {
-      case Trace(((head: Relationship) :: rest), namedSubpaths, visitedPaths) =>
-        Stream(Trace((if(dir == OUTGOING) head.getStartNode() else head.getEndNode())  :: t.path, namedSubpaths, visitedPaths))
+    _ => ts => ts match {
+      case (t@Trace(((head: Relationship) :: rest), namedSubpaths, visitedPaths), state) =>
+        Stream((Trace((if(dir == OUTGOING) head.getStartNode() else head.getEndNode())  :: t.path, namedSubpaths, visitedPaths), state))
     }
 
   def out(edgeName: String): Traverser =
@@ -43,16 +44,16 @@ trait Neo4jTrails extends Trails {
     seq(inE(edgeName), outV())
 
   def V(): Traverser =
-    env => _ => GlobalGraphOperations.at(env).getAllNodes().toStream.map(v => Trace(List(v), Map(), None))
+    env => ts => GlobalGraphOperations.at(env).getAllNodes().toStream.map(v => (Trace(List(v), Map(), None), ts._2))
 
   def V(id: Long): Traverser =
-    env => _ => Stream(Trace(List(env.getNodeById(id)), Map(), None))
+    env => ts => Stream((Trace(List(env.getNodeById(id)), Map(), None), ts._2))
 
   def E(): Traverser =
-    env => _ => GlobalGraphOperations.at(env).getAllRelationships().toStream.map(v => Trace(List(v), Map(), None))
+    env => ts => GlobalGraphOperations.at(env).getAllRelationships().toStream.map(v => (Trace(List(v), Map(), None), ts._2))
 
   def E(id: Long): Traverser =
-    env => _ => Stream(Trace(List(env.getRelationshipById(id)), Map(), None))
+    env => ts => Stream((Trace(List(env.getRelationshipById(id)), Map(), None), ts._2))
 
   def has(name: String, value: Any): Traverser =
     filterHead(elem => elem.hasProperty(name) && elem.getProperty(name) == value)
