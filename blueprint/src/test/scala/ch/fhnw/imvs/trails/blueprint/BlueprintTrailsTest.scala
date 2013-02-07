@@ -85,7 +85,7 @@ class BlueprintTrailsTest extends FunSuite {
     val f0 = graph.addEdge("f0", v1, v1, "f")
 
 
-    val expr0 = V("v0") ~ outE("e").as("es") ~ inV().as("vs") ~ out("e")
+    val expr0 = V("v0") ~ outE("e").as[String]("es") ~ inV().as[String]("vs") ~ out("e")
     val traces = expr0.run(graph)
 
     val paths = traces.map(t => t._1.path.reverse)
@@ -93,7 +93,7 @@ class BlueprintTrailsTest extends FunSuite {
     assert(paths.size === 2)
 
     val mergedNamedSubPaths = traces.foldLeft(Map[String, List[Path]]()){ case (acc, (Trace(_, _), namedSubPaths)) =>
-      acc ++ namedSubPaths.map{ case (k,v) => (k, (v ++ acc.getOrElse(k,Nil))) }
+      acc ++ namedSubPaths.map{ case (k,v) => (k.name, (v ++ acc.getOrElse(k.name,Nil))) }
     }
 
     assert(mergedNamedSubPaths.size === 2)
@@ -106,10 +106,6 @@ class BlueprintTrailsTest extends FunSuite {
     assert(mergedNamedSubPaths("vs").size === 2)
     assert(mergedNamedSubPaths("vs").contains(List(v1)))
     assert(mergedNamedSubPaths("vs").contains(List(v2)))
-
-
-
-
   }
 
   test("table") {
@@ -126,7 +122,7 @@ class BlueprintTrailsTest extends FunSuite {
     graph.addEdge("e3", v2, v3, "e")
     graph.addEdge("e4", v2, v4, "e")
 
-    val expr0 = V("v0") ~ out("e").as("out(e)").+ ~ outE("e").as("outE(e)").?
+    val expr0 = V("v0") ~ out("e").as[String]("out(e)").+ ~ outE("e").as[String]("outE(e)").?
     val traces = expr0.run(graph)
 
     val table = ScalaTable(traces)

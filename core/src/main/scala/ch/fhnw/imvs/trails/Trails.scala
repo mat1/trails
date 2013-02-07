@@ -14,18 +14,17 @@ trait Trails {
   /** Type of a path through the graph. */
   type Path = List[PathElement]
 
+  /** Type of the state which is passed along with the Trace */
+  type State
+
   /** Also a path through the graph but with additional bookkeeping for named sub-paths and cycle detection. */
   case class Trace(path: Path, visitedPaths: Option[Set[Path]])
-
-  type State
 
   /** A Traverser is a function which takes an Environment (we may use a Reader monad),
     * an input Trace and produces a Stream of subsequent Traces.
     * Traverser is THE compositional unit in trails.
     */
   type Traverser = Environment => Pair[Trace, State] => Stream[Pair[Trace, State]]
-
-
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
     * and then feeds the results into the snd traverser.
