@@ -5,6 +5,7 @@ import com.tinkerpop.blueprints._
 import scala.collection.JavaConversions._
 import ch.fhnw.imvs.trails.{Tables, Trails}
 import scalaz.Show
+import reflect.ClassTag
 
 trait BlueprintTrails extends Trails with Tables {
 
@@ -43,6 +44,16 @@ trait BlueprintTrails extends Trails with Tables {
       case (t@Trace(((head: Edge) :: rest), visitedPaths), state) =>
         Stream((Trace((head.getVertex(dir) :: t.path), visitedPaths),state))
     }
+
+  def selectProperty[A: ClassTag](traverser: Traverser, propName: String): Traverser = {
+    name[A](propName, traverser, implicitly[ClassTag[A]]) { path =>
+      path.head.getProperty(propName).asInstanceOf[A]
+    }
+  }
+
+  implicit class BlueprintTable(tr: Traverser) {
+    def selectProp[A: ClassTag](name: String): Traverser = selectProperty[A](tr, name)
+  }
 
   def out(edgeName: String): Traverser =
     seq(outE(edgeName), inV())

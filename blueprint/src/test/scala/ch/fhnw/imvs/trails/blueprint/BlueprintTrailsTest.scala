@@ -93,20 +93,6 @@ class BlueprintTrailsTest extends FunSuite {
 
     assert(paths.size === 2)
 
-    val mergedNamedSubPaths = traces.foldLeft(Map[String, List[Path]]()){ case (acc, (Trace(_, _), namedSubPaths)) =>
-      acc ++ namedSubPaths.map{ case (k,v) => (k.name, (v ++ acc.getOrElse(k.name,Nil))) }
-    }
-
-    assert(mergedNamedSubPaths.size === 2)
-    assert(mergedNamedSubPaths.contains("es"))
-    assert(mergedNamedSubPaths("es").size === 2)
-    assert(mergedNamedSubPaths("es").contains(List(e0)))
-    assert(mergedNamedSubPaths("es").contains(List(e2)))
-
-    assert(mergedNamedSubPaths.contains("vs"))
-    assert(mergedNamedSubPaths("vs").size === 2)
-    assert(mergedNamedSubPaths("vs").contains(List(v1)))
-    assert(mergedNamedSubPaths("vs").contains(List(v2)))
   }
 
   test("table") {
@@ -147,7 +133,43 @@ class BlueprintTrailsTest extends FunSuite {
     val sqlQuery = fromTable("yeah") {
       V("v0") ~ out("e").as[String]("col1").+ ~ outE("e").as[String]("col2").?
     } extract {
-      " select col1, col2 as COOL from yeah where col2 = 'List()' order by col1 desc "
+      " select col1, col2 from yeah where col2 = 'List()' order by col1 desc "
+    }
+
+    val res: ResultSet = sqlQuery(graph)
+  }
+
+  test("sql table properties") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    v0.setProperty("name", "Name0")
+    v0.setProperty("age", 0)
+
+    val v1 = graph.addVertex("v1")
+    v1.setProperty("name", "Name1")
+    v1.setProperty("age", 1)
+
+    val v2 = graph.addVertex("v2")
+    v2.setProperty("name", "Name2")
+    v2.setProperty("age", 2)
+
+    val v3 = graph.addVertex("v3")
+    v3.setProperty("name", "Name3")
+    v3.setProperty("age", 3)
+
+    val v4 = graph.addVertex("v4")
+    v4.setProperty("name", "Name4")
+    v4.setProperty("age", 4)
+
+    graph.addEdge("e0", v0, v1, "e")
+    graph.addEdge("e1", v0, v2, "e")
+    graph.addEdge("e2", v1, v3, "e")
+    graph.addEdge("e3", v2, v4, "e")
+
+    val sqlQuery = fromTable("yeah") {
+      V("v0") ~ out("e").selectProp[String]("name") ~ out("e").selectProp[Int]("age")
+    } extract {
+      " select name, age from yeah  order by name desc "
     }
 
     val res: ResultSet = sqlQuery(graph)

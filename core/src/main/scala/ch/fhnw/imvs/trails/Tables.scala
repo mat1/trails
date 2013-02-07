@@ -12,21 +12,21 @@ trait Tables {
   case class Named(name: String, tag: ClassTag[_])
 
   /** Maps names to generated subpaths */
-  type State = Map[Named, List[Path]]
+  type State = Map[Named, List[Any]]
 
   /** Returns a traverser which stores the generated sub-paths in a map with the given name as the key.
     * @param name the name under which the sub-path is stored in the map
     * @param tr the traverser
     * @return a traverser which stores the generated sub-paths in a map
     */
-  def name(name: String, tr: Traverser, tag: ClassTag[_]): Traverser =
+  def name[A](name: String, tr: Traverser, tag: ClassTag[A])(select: Path => A = (x: Path) => x.asInstanceOf[A]): Traverser =
     env => ts => {
       val (trace, state) = ts
       val size = trace.path.size
       tr(env)(ts).map { case (Trace(path, visitedPaths), namedSubPaths) =>
         val currentEvaluation = path.take(path.size - size)
         val key = Named(name, tag)
-        val updated = namedSubPaths.updated(key, currentEvaluation :: namedSubPaths.getOrElse(key, Nil))
+        val updated = namedSubPaths.updated(key, select(currentEvaluation) :: namedSubPaths.getOrElse(key, Nil))
         (Trace(path, visitedPaths), updated)
       }
     }
@@ -44,9 +44,12 @@ trait Tables {
 
 
       //name varchar(10), city varchar(10), phone integer
-      def prepareTable(meta: Vector[Named], data: Seq[Seq[Any]]): Connection = {
+      def prepareTable(table: ScalaTable): Connection = {
+        val meta = table.headers
+        val data = table.rows
         val connection = DriverManager.getConnection("jdbc:hsqldb:mem:dsl;shutdown=true","SA","")
         val schemaStmt = connection.createStatement()
+
         val schemaSql = s"create memory table $tableName(${meta.map(m => m.name + " varchar(100)" /*+ m._2*/).mkString(", ")})"
         println(schemaSql)
         schemaStmt.executeUpdate(schemaSql)
@@ -75,7 +78,7 @@ trait Tables {
         connection
       }
 
-      val con = prepareTable(tab.headers, tab.rows)
+      val con = prepareTable(tab)
 
       val stmt =  con.createStatement()
       val rs = stmt.executeQuery(query)
@@ -86,7 +89,6 @@ trait Tables {
       stmt.close()
       con.close()
 
-
       null
     }
   }
@@ -95,12 +97,12 @@ trait Tables {
     val meta = result.getMetaData
     val colCount = meta.getColumnCount()
 
-    val columnNames = for(i <- 1 to colCount) yield meta.getColumnName(i)
+    val columnNames = for(i <- (1 to colCount).toList) yield meta.getColumnName(i)
     println(columnNames.mkString(" | "))
 
     val builder = List.newBuilder[IndexedSeq[Any]]
     while(result.next()) {
-      builder += (for (i <- 1 to colCount) yield result.getString(i))
+      builder += (for (i <- 1 to colCount) yield (result.getString(i)))
     }
 
     for (d <- builder.result()) {
@@ -109,7 +111,7 @@ trait Tables {
   }
 
   implicit class TablesSyntax(t1: Traverser) {
-    def as[T: ClassTag](n: String): Traverser = name(n, t1, implicitly[ClassTag[T]])
+    def as[T: ClassTag](n: String): Traverser = name[T](n, t1, implicitly[ClassTag[T]])()
     def run(e: Environment) = t1(e)((Trace(Nil, None),Map()))
   }
 
@@ -120,11 +122,11 @@ trait Tables {
   case class ScalaTable(private val traces: Stream[(Trace, State)]) {
 
     val headers: Vector[Named] = traces.foldLeft(Set[Named]())((acc, t) => acc ++ t._2.keys).toVector.sortBy(_.name)
-    def rows: Vector[Vector[List[Path]]] = traces.toVector.map(t => headers.map(h => t._2.getOrElse(h, Nil)))
+    def rows: Vector[Vector[List[Any]]] = traces.toVector.map(t => headers.map(h => t._2.getOrElse(h, Nil)))
 
     def pretty(implicit showPathElem: Show[PathElement]): String = {
       val colls = for((name, index) <- headers.zipWithIndex ) yield {
-        val col = rows.map(row => row(index).map(Show[Path].shows).toString)
+        val col = rows.map(row => row(index).toString)
         val maxSize = col.map(_.size).max
         (name, maxSize, col)
       }
