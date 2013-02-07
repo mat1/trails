@@ -2,6 +2,7 @@ package ch.fhnw.imvs.trails.blueprint
 
 import org.scalatest.FunSuite
 import com.tinkerpop.blueprints.impls.tg.TinkerGraph
+import java.sql.ResultSet
 
 class BlueprintTrailsTest extends FunSuite {
   import ch.fhnw.imvs.trails.Blueprint._
@@ -127,6 +128,29 @@ class BlueprintTrailsTest extends FunSuite {
 
     val table = ScalaTable(traces)
     println(table.pretty)
+  }
+
+  test("sql table") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    val v1 = graph.addVertex("v1")
+    val v2 = graph.addVertex("v2")
+    val v3 = graph.addVertex("v3")
+    val v4 = graph.addVertex("v4")
+
+    graph.addEdge("e0", v0, v1, "e")
+    graph.addEdge("e1", v1, v3, "e")
+    graph.addEdge("e2", v0, v2, "e")
+    graph.addEdge("e3", v2, v3, "e")
+    graph.addEdge("e4", v2, v4, "e")
+
+    val sqlQuery = fromTable("yeah") {
+      V("v0") ~ out("e").as[String]("col1").+ ~ outE("e").as[String]("col2").?
+    } extract {
+      " select col1, col2 as COOL from yeah where col2 = 'List()' order by col1 desc "
+    }
+
+    val res: ResultSet = sqlQuery(graph)
   }
 }
 

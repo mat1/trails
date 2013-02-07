@@ -3,6 +3,7 @@ package ch.fhnw.imvs.trails
 import scala.language.existentials
 import scalaz.Show
 import reflect.ClassTag
+import java.sql.{DriverManager, Connection, ResultSet}
 
 
 trait Tables {
@@ -30,6 +31,83 @@ trait Tables {
       }
     }
 
+  def fromTable(tableName: String)(traverser: Traverser): Extract = new Extract(tableName, traverser)
+
+  class Extract(tableName: String, traverser: Traverser) {
+    def extract(query: String): Environment => ResultSet = e => {
+      val travRes = traverser.run(e)
+      val tab = ScalaTable(travRes)
+      println("headers: " + tab.headers.map(h => h.name + " " + h.tag.runtimeClass.getSimpleName))
+
+
+      Class.forName("org.hsqldb.jdbc.JDBCDriver")
+
+
+      //name varchar(10), city varchar(10), phone integer
+      def prepareTable(meta: Vector[Named], data: Seq[Seq[Any]]): Connection = {
+        val connection = DriverManager.getConnection("jdbc:hsqldb:mem:dsl;shutdown=true","SA","")
+        val schemaStmt = connection.createStatement()
+        val schemaSql = s"create memory table $tableName(${meta.map(m => m.name + " varchar(100)" /*+ m._2*/).mkString(", ")})"
+        println(schemaSql)
+        schemaStmt.executeUpdate(schemaSql)
+
+        val sql = s"insert into $tableName (${meta.map(_.name).mkString(", ")}) values (${meta.map(_ => "?").mkString(", ")})"
+        println(sql)
+        val ps = connection.prepareStatement(sql)
+
+        val types = meta.map(_.tag)
+
+        for (d <- data) {
+          for (((t,v), i) <- types.zip(d).zipWithIndex) {
+            //t match {
+            ps.setString(i + 1, ""+v)
+          //    case "varchar(10)" =>
+          //    case "integer" => ps.setInt(i + 1, v.asInstanceOf[Int])
+          //    case _ => throw new IllegalArgumentException("Unknown type: " + t)
+          //  }
+          }
+          ps.addBatch()
+        }
+
+        ps.executeBatch()
+        ps.close()
+
+        connection
+      }
+
+      val con = prepareTable(tab.headers, tab.rows)
+
+      val stmt =  con.createStatement()
+      val rs = stmt.executeQuery(query)
+
+      printResultSet(rs)
+
+      rs.close()
+      stmt.close()
+      con.close()
+
+
+      null
+    }
+  }
+
+  def printResultSet(result: ResultSet) {
+    val meta = result.getMetaData
+    val colCount = meta.getColumnCount()
+
+    val columnNames = for(i <- 1 to colCount) yield meta.getColumnName(i)
+    println(columnNames.mkString(" | "))
+
+    val builder = List.newBuilder[IndexedSeq[Any]]
+    while(result.next()) {
+      builder += (for (i <- 1 to colCount) yield result.getString(i))
+    }
+
+    for (d <- builder.result()) {
+      println(d.mkString(" | "))
+    }
+  }
+
   implicit class TablesSyntax(t1: Traverser) {
     def as[T: ClassTag](n: String): Traverser = name(n, t1, implicitly[ClassTag[T]])
     def run(e: Environment) = t1(e)((Trace(Nil, None),Map()))
@@ -40,10 +118,9 @@ trait Tables {
    * @param traces the traces
    */
   case class ScalaTable(private val traces: Stream[(Trace, State)]) {
-    private val state: Stream[Map[String,List[Path]]] = traces.map(_._2.map { case (key, value) => (key.name, value) }.toMap )
 
-    val headers: Vector[String] = state.foldLeft(Set[String]())((acc, t) => acc ++ t.keys).toVector.sorted
-    def rows: Vector[Vector[List[Path]]] = state.toVector.map(t => headers.map(h => t.getOrElse(h, Nil)))
+    val headers: Vector[Named] = traces.foldLeft(Set[Named]())((acc, t) => acc ++ t._2.keys).toVector.sortBy(_.name)
+    def rows: Vector[Vector[List[Path]]] = traces.toVector.map(t => headers.map(h => t._2.getOrElse(h, Nil)))
 
     def pretty(implicit showPathElem: Show[PathElement]): String = {
       val colls = for((name, index) <- headers.zipWithIndex ) yield {
@@ -52,7 +129,7 @@ trait Tables {
         (name, maxSize, col)
       }
 
-      val headerLine = colls.map { case (name, maxSize, _) => name.padTo(maxSize, " ").mkString }
+      val headerLine = colls.map { case (named, maxSize, _) => named.name.padTo(maxSize, " ").mkString }
       val data = for(i <- 0 until rows.size) yield {
         colls.map {case (name, maxSize, col) => col(i).padTo(maxSize, " ").mkString }
       }
