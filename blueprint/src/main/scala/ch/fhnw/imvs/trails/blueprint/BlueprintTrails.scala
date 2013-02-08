@@ -46,13 +46,13 @@ trait BlueprintTrails extends Trails with Tables {
     }
 
   def selectProperty[A: ClassTag](traverser: Traverser, propName: String): Traverser = {
-    name[A](propName, traverser, implicitly[ClassTag[A]]) { path =>
+    name[A](propName, traverser) { path =>
       path.head.getProperty(propName).asInstanceOf[A]
     }
   }
 
   implicit class BlueprintTable(tr: Traverser) {
-    def selectProp[A: ClassTag](name: String): Traverser = selectProperty[A](tr, name)
+    def ^[A: ClassTag](name: String): Traverser = selectProperty[A](tr, name)
   }
 
   def out(edgeName: String): Traverser =

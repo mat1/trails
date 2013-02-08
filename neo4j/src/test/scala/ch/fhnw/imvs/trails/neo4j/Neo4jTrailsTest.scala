@@ -46,7 +46,7 @@ class Neo4jTrailsTest extends FunSuite {
 
       val expr0 = V(v0.getId) ~ (out("e").+ ~ out("f")).+
 
-      val traces = expr0.run(graph,())
+      val traces = expr0.run(graph)
       val paths = traces.map(t => t._1.path.reverse)
 
       assert(paths.size === 4)
@@ -73,7 +73,7 @@ class Neo4jTrailsTest extends FunSuite {
 
       val expr0 = V ~ out("e") ~ out("f") ~ out("g") ~ out("e")
 
-      val traces = expr0.run(graph,())
+      val traces = expr0.run(graph)
       val paths = traces.map(t => t._1.path.reverse)
 
       assert(paths.size === 1)
@@ -95,7 +95,7 @@ class Neo4jTrailsTest extends FunSuite {
 
 
       val expr0 = V ~ matches(out("e") ~ out("f") ~ out("g") ~ out("e"))
-      val traces = expr0.run(graph,())
+      val traces = expr0.run(graph)
       val paths = traces.map(t => t._1.path.reverse)
 
       assert(paths.size === 1)
@@ -103,5 +103,3 @@ class Neo4jTrailsTest extends FunSuite {
     }
   }
 }
-
-

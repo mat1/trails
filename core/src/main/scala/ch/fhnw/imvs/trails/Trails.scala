@@ -116,8 +116,6 @@ trait Trails {
   def filterHead(p: PathElement => Boolean): Traverser =
     filter(t => t match { case (Trace(head :: rest, _), state) => p(head)} )
 
-
-
   /** Provides some nice infix syntax. */
   implicit class Syntax(t1: Traverser) {
     def ~(t2: Traverser): Traverser = seq(t1, t2)

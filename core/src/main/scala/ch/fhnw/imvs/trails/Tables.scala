@@ -14,95 +14,108 @@ trait Tables {
   /** Maps names to generated subpaths */
   type State = Map[Named, List[Any]]
 
+
+  def namedSubPath(keyName: String, tr: Traverser): Traverser =
+    name[Path](keyName, tr)((p: Path) => p)
+
   /** Returns a traverser which stores the generated sub-paths in a map with the given name as the key.
     * @param name the name under which the sub-path is stored in the map
     * @param tr the traverser
     * @return a traverser which stores the generated sub-paths in a map
     */
-  def name[A](name: String, tr: Traverser, tag: ClassTag[A])(select: Path => A = (x: Path) => x.asInstanceOf[A]): Traverser =
+  def name[A: ClassTag](name: String, tr: Traverser)(select: Path => A = (x: Path) => x.asInstanceOf[A]): Traverser =
     env => ts => {
       val (trace, state) = ts
       val size = trace.path.size
       tr(env)(ts).map { case (Trace(path, visitedPaths), namedSubPaths) =>
         val currentEvaluation = path.take(path.size - size)
-        val key = Named(name, tag)
+        val key = Named(name, implicitly[ClassTag[A]])
         val updated = namedSubPaths.updated(key, select(currentEvaluation) :: namedSubPaths.getOrElse(key, Nil))
         (Trace(path, visitedPaths), updated)
       }
     }
 
-  def fromTable(tableName: String)(traverser: Traverser): Extract = new Extract(tableName, traverser)
+  def pathTable(tableName: String, traverser: Traverser): Environment => Connection => Connection = env => connection => {
+    val travRes = traverser.run(env)
+    val tab = ScalaTable(travRes)
+    println("headers: " + tab.headers.map(h => h.name + " " + h.tag.runtimeClass.getSimpleName))
 
-  class Extract(tableName: String, traverser: Traverser) {
-    def extract(query: String): Environment => ResultSet = e => {
-      val travRes = traverser.run(e)
-      val tab = ScalaTable(travRes)
-      println("headers: " + tab.headers.map(h => h.name + " " + h.tag.runtimeClass.getSimpleName))
-
-
-      Class.forName("org.hsqldb.jdbc.JDBCDriver")
-
-      def tagToSqlType(tt: ClassTag[_]): String = tt match {
-        case tt if tt == ClassTag[String](classOf[String]) => "varchar(100)"
-        case tt if tt == ClassTag.Int => "integer"
-        case tt=> throw new IllegalArgumentException("Unknown type: " + tt)
-      }
-
-
-      //name varchar(10), city varchar(10), phone integer
-      def prepareTable(table: ScalaTable): Connection = {
-        val meta = table.headers
-        val data = table.rows
-        val connection = DriverManager.getConnection("jdbc:hsqldb:mem:dsl;shutdown=true","SA","")
-        val schemaStmt = connection.createStatement()
-
-        val schemaSql = s"create memory table $tableName(${meta.map(m => s"${m.name} ${tagToSqlType(m.tag)}").mkString(", ")})"
-        println(schemaSql)
-        schemaStmt.executeUpdate(schemaSql)
-
-        val sql = s"insert into $tableName (${meta.map(_.name).mkString(", ")}) values (${meta.map(_ => "?").mkString(", ")})"
-        println(sql)
-        val ps = connection.prepareStatement(sql)
-
-        val types = meta.map(_.tag)
-
-        for (d <- data) {
-          for (((t,v), i) <- types.zip(d).zipWithIndex) {
-            t match {
-              case tt if tt == ClassTag[String](classOf[String]) => ps.setString(i + 1, v.headOption.map(_.toString).getOrElse(null) )
-              case tt if tt == ClassTag.Int => ps.setObject(i + 1, v.headOption.map(_.asInstanceOf[Int]).getOrElse(null))
-              case tt=> throw new IllegalArgumentException("Unknown type: " + t)
-            }
-          }
-          ps.addBatch()
-        }
-
-        ps.executeBatch()
-        ps.close()
-
-        connection
-      }
-
-      val con = prepareTable(tab)
-
-      val stmt =  con.createStatement()
-      val rs = stmt.executeQuery(query)
-
-      printResultSet(rs)
-
-      rs.close()
-      stmt.close()
-      con.close()
-
-      null
+    def tagToSqlType(tt: ClassTag[_]): String = tt match {
+      case tt if tt == ClassTag[String](classOf[String]) => "varchar(100)"
+      case tt if tt == ClassTag.Int => "integer"
+      case tt => "varchar(100)" // throw new IllegalArgumentException("Unknown type: " + tt)
     }
+
+    def prepareTable(table: ScalaTable): Connection = {
+      val meta = table.headers
+      val data = table.rows
+      val schemaStmt = connection.createStatement()
+
+      val schemaSql = s"create memory table $tableName(${meta.map(m => m.name + " " + tagToSqlType(m.tag)).mkString(", ")})"
+      println(schemaSql)
+      schemaStmt.executeUpdate(schemaSql)
+
+      val sql = s"insert into $tableName (${meta.map(_.name).mkString(", ")}) values (${meta.map(_ => "?").mkString(", ")})"
+      println(sql)
+      val ps = connection.prepareStatement(sql)
+
+      val tags = meta.map(_.tag)
+
+      for (d <- data) {
+        for (((t,v), i) <- tags.zip(d).zipWithIndex) {
+          t match {
+            case tt if tt == ClassTag[String](classOf[String]) => ps.setString(i + 1, v.headOption.map(_.toString).getOrElse(null) )
+            case tt if tt == ClassTag.Int => ps.setObject(i + 1, v.headOption.map(_.asInstanceOf[Int]).getOrElse(null))
+            case tt=> ps.setString(i + 1, v.headOption.map(_.toString.take(100)).getOrElse(null) ) // throw new IllegalArgumentException("Unknown type: " + t)
+          }
+        }
+        ps.addBatch()
+      }
+
+      ps.executeBatch()
+      ps.close()
+
+      connection
+    }
+    prepareTable(tab)
+  }
+
+  def from(first: Environment => Connection => Connection, inMemDb: (Environment => Connection => Connection)*): Environment => Connection = env => {
+    Class.forName("org.hsqldb.jdbc.JDBCDriver")
+    val connection = DriverManager.getConnection("jdbc:hsqldb:mem:dsl;shutdown=true","SA","")
+    inMemDb.foldLeft(first(env)(connection))((fs, f) => f(env)(fs))
+  }
+
+  def processTable[T](dbF: Environment => Connection, query: String, resultF: ResultSet => T): Environment => T = env => {
+    val conn = dbF(env)
+    val stmt =  conn.createStatement()
+    val rs = stmt.executeQuery(query)
+    val res = resultF(rs)
+
+    rs.close()
+    stmt.close()
+    conn.close()
+
+    res
+  }
+
+  implicit class ConnectionSyntax(dbf: Environment => Connection) {
+    def extract[T](query: String)(resultF: ResultSet => T ): Environment => T = processTable[T](dbf, query, resultF)
+  }
+
+  implicit class TablesSyntax(t1: Traverser) {
+    // Much better idea: Use "AST construction style" like scala parser combinators ^^ t1 ~ t2 => t1.prop("a")
+    def as(n: String): Traverser = namedSubPath(n, t1)
+
+    def asTable(name: String): Environment => Connection => Connection = pathTable(name, t1)
+    def run(e: Environment) = t1(e)((Trace(Nil, None),Map()))
   }
 
   def printResultSet(result: ResultSet) {
     val meta = result.getMetaData
     val colCount = meta.getColumnCount()
 
-    val columnNames = for(i <- (1 to colCount).toList) yield meta.getColumnName(i)
+    val columnNames = for(i <- (1 to colCount).toList) yield meta.getColumnLabel(i) //TODO alias names
     println(columnNames.mkString(" | "))
 
     val builder = List.newBuilder[IndexedSeq[Any]]
@@ -113,11 +126,6 @@ trait Tables {
     for (d <- builder.result()) {
       println(d.mkString(" | "))
     }
-  }
-
-  implicit class TablesSyntax(t1: Traverser) {
-    def as[T: ClassTag](n: String): Traverser = name[T](n, t1, implicitly[ClassTag[T]])()
-    def run(e: Environment) = t1(e)((Trace(Nil, None),Map()))
   }
 
   /**

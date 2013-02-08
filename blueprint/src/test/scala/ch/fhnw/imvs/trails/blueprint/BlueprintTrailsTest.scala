@@ -86,7 +86,7 @@ class BlueprintTrailsTest extends FunSuite {
     val f0 = graph.addEdge("f0", v1, v1, "f")
 
 
-    val expr0 = V("v0") ~ outE("e").as[String]("es") ~ inV().as[String]("vs") ~ out("e")
+    val expr0 = V("v0") ~ outE("e").as("es") ~ inV().as("vs") ~ out("e")
     val traces = expr0.run(graph)
 
     val paths = traces.map(t => t._1.path.reverse)
@@ -109,7 +109,7 @@ class BlueprintTrailsTest extends FunSuite {
     graph.addEdge("e3", v2, v3, "e")
     graph.addEdge("e4", v2, v4, "e")
 
-    val expr0 = V("v0") ~ out("e").as[String]("out(e)").+ ~ outE("e").as[String]("outE(e)").?
+    val expr0 = V("v0") ~ out("e").as("out(e)").+ ~ outE("e").as("outE(e)").?
     val traces = expr0.run(graph)
 
     val table = ScalaTable(traces)
@@ -130,13 +130,11 @@ class BlueprintTrailsTest extends FunSuite {
     graph.addEdge("e3", v2, v3, "e")
     graph.addEdge("e4", v2, v4, "e")
 
-    val sqlQuery = fromTable("yeah") {
-      V("v0") ~ out("e").as[String]("col1").+ ~ outE("e").as[String]("col2").?
-    } extract {
-      " select col1, col2 from yeah where col2 = 'List()' order by col1 desc "
-    }
+    val dbAction = from {
+      (V("v0") ~ out("e").as("col1").+ ~ outE("e").as("col2").?).asTable("yeah")
+    }.extract[Unit] (" select col1, col2 from yeah order by col1 desc ") { (rs: ResultSet) => printResultSet(rs) }
 
-    val res: ResultSet = sqlQuery(graph)
+    dbAction(graph)
   }
 
   test("sql table properties") {
@@ -166,14 +164,23 @@ class BlueprintTrailsTest extends FunSuite {
     graph.addEdge("e2", v1, v3, "e")
     graph.addEdge("e3", v2, v4, "e")
 
-    val sqlQuery = fromTable("yeah") {
-      V("v0") ~ out("e").selectProp[String]("name") ~ out("e").selectProp[Int]("age")
-    } extract {
-      " select name, age from yeah order by name desc "
-    }
+    val sqlQuery = from (
+      (V("v0") ~ out("e").^[String]("name") ~ out("e").^[Int]("age")).asTable("t1"),
+      (V("v0") ~ out("e").^[String]("name") ~ out("e").^[Int]("age")).asTable("t2")
+    ).extract (
+      """
+      select lower(t1.name) as lowerName, upper(t2.name)
+        from t1, t2
+       where t1.age != t2.age
+      """
+    ) ( printResultSet )
 
-    println("UNFOLD TABLE")
+    sqlQuery(graph) // execute at the end
+  }
+
     /*
+
+ println("UNFOLD TABLE")
 
     Vector(// table
       Vector(List(a,b), List(c,d)) //row
@@ -195,8 +202,5 @@ class BlueprintTrailsTest extends FunSuite {
       Vector(b,d)
     )
     */
-
-    val res: ResultSet = sqlQuery(graph)
-  }
 }
 
