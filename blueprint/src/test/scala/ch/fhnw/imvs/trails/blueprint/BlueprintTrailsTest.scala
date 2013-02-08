@@ -169,8 +169,32 @@ class BlueprintTrailsTest extends FunSuite {
     val sqlQuery = fromTable("yeah") {
       V("v0") ~ out("e").selectProp[String]("name") ~ out("e").selectProp[Int]("age")
     } extract {
-      " select name, age from yeah  order by name desc "
+      " select name, age from yeah order by name desc "
     }
+
+    println("UNFOLD TABLE")
+    /*
+
+    Vector(// table
+      Vector(List(a,b), List(c,d)) //row
+    )
+    =>
+
+    Vector(
+      Vector(List(a,b), c)
+      Vector(List(a,b), d)
+    )
+
+    =>
+
+    Vector(
+      Vector(a,c)
+      Vector(b,c)
+
+      Vector(a,d)
+      Vector(b,d)
+    )
+    */
 
     val res: ResultSet = sqlQuery(graph)
   }

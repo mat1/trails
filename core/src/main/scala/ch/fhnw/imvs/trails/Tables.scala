@@ -42,6 +42,12 @@ trait Tables {
 
       Class.forName("org.hsqldb.jdbc.JDBCDriver")
 
+      def tagToSqlType(tt: ClassTag[_]): String = tt match {
+        case tt if tt == ClassTag[String](classOf[String]) => "varchar(100)"
+        case tt if tt == ClassTag.Int => "integer"
+        case tt=> throw new IllegalArgumentException("Unknown type: " + tt)
+      }
+
 
       //name varchar(10), city varchar(10), phone integer
       def prepareTable(table: ScalaTable): Connection = {
@@ -50,7 +56,7 @@ trait Tables {
         val connection = DriverManager.getConnection("jdbc:hsqldb:mem:dsl;shutdown=true","SA","")
         val schemaStmt = connection.createStatement()
 
-        val schemaSql = s"create memory table $tableName(${meta.map(m => m.name + " varchar(100)" /*+ m._2*/).mkString(", ")})"
+        val schemaSql = s"create memory table $tableName(${meta.map(m => s"${m.name} ${tagToSqlType(m.tag)}").mkString(", ")})"
         println(schemaSql)
         schemaStmt.executeUpdate(schemaSql)
 
@@ -62,12 +68,11 @@ trait Tables {
 
         for (d <- data) {
           for (((t,v), i) <- types.zip(d).zipWithIndex) {
-            //t match {
-            ps.setString(i + 1, ""+v)
-          //    case "varchar(10)" =>
-          //    case "integer" => ps.setInt(i + 1, v.asInstanceOf[Int])
-          //    case _ => throw new IllegalArgumentException("Unknown type: " + t)
-          //  }
+            t match {
+              case tt if tt == ClassTag[String](classOf[String]) => ps.setString(i + 1, v.headOption.map(_.toString).getOrElse(null) )
+              case tt if tt == ClassTag.Int => ps.setObject(i + 1, v.headOption.map(_.asInstanceOf[Int]).getOrElse(null))
+              case tt=> throw new IllegalArgumentException("Unknown type: " + t)
+            }
           }
           ps.addBatch()
         }
