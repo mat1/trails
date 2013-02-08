@@ -141,37 +141,33 @@ class BlueprintTrailsTest extends FunSuite {
     val graph = new TinkerGraph()
     val v0 = graph.addVertex("v0")
     v0.setProperty("name", "Name0")
-    v0.setProperty("age", 0)
 
     val v1 = graph.addVertex("v1")
     v1.setProperty("name", "Name1")
-    v1.setProperty("age", 1)
 
     val v2 = graph.addVertex("v2")
     v2.setProperty("name", "Name2")
-    v2.setProperty("age", 2)
 
     val v3 = graph.addVertex("v3")
     v3.setProperty("name", "Name3")
-    v3.setProperty("age", 3)
 
     val v4 = graph.addVertex("v4")
     v4.setProperty("name", "Name4")
-    v4.setProperty("age", 4)
 
-    graph.addEdge("e0", v0, v1, "e")
-    graph.addEdge("e1", v0, v2, "e")
-    graph.addEdge("e2", v1, v3, "e")
-    graph.addEdge("e3", v2, v4, "e")
+    graph.addEdge("e0", v0, v1, "e").setProperty("weight", 0)
+    graph.addEdge("e1", v0, v2, "e").setProperty("weight", 1)
+    graph.addEdge("e2", v1, v3, "e").setProperty("weight", 2)
+    graph.addEdge("e3", v2, v3, "e").setProperty("weight", 3)
 
     val sqlQuery = from (
-      (V("v0") ~ out("e").^[String]("name") ~ out("e").^[Int]("age")).asTable("t1"),
-      (V("v0") ~ out("e").^[String]("name") ~ out("e").^[Int]("age")).asTable("t2")
+      (V("v0") ~ outE("e").^[Int]("weight") ~ inV().^[String]("name") ~ out("e")).asTable("t1"),
+      (V("v1") ~ (inE("e") | outE("e")).^[Int]("weight")).asTable("t2")
     ).extract (
       """
-      select lower(t1.name) as lowerName, upper(t2.name)
+      select lower(t1.name) as lowerName, t2.weight
         from t1, t2
-       where t1.age != t2.age
+       where t1.weight <> t2.weight
+       order by t1.weight asc
       """
     ) ( printResultSet )
 
@@ -179,7 +175,10 @@ class BlueprintTrailsTest extends FunSuite {
   }
 
     /*
-
+      select lower(t1.name) as lowerName, t1.weight, t2.ageA
+        from t1, t2
+       where t1.age != t2.age
+       order by t1.age
  println("UNFOLD TABLE")
 
     Vector(// table

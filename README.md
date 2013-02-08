@@ -22,65 +22,113 @@ The following combinators are supported:
 
 ## Examples
 ```scala
-    test("Cycles") {
-      val graph = new TinkerGraph()
-      val v0 = graph.addVertex("v0")
+  test("Cycles") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
 
-      val e0 = graph.addEdge("e0", v0, v0, "e")
-      val f0 = graph.addEdge("f0", v0, v0, "f")
-      val f1 = graph.addEdge("f1", v0, v0, "f")
+    val e0 = graph.addEdge("e0", v0, v0, "e")
+    val f0 = graph.addEdge("f0", v0, v0, "f")
+    val f1 = graph.addEdge("f1", v0, v0, "f")
 
-      val expr0 = V("v0") ~ (out("e").+ ~ out("f")).+
+    val expr0 = V("v0") ~ (out("e").+ ~ out("f")).+
 
-      val traces = expr0.run(Env(graph))
-      val paths = traces.map(t => t.path.reverse)
+    val traces = expr0.run(graph)
+    val paths = traces.map(t => t._1.path.reverse)
 
-      assert(paths.size === 4)
+    assert(paths.size === 4)
 
-      assert(paths.contains(List(v0, e0, v0, f1, v0)))
-      assert(paths.contains(List(v0, e0, v0, f1, v0, e0, v0, f0, v0)))
-      assert(paths.contains(List(v0, e0, v0, f0, v0)))
-      assert(paths.contains(List(v0, e0, v0, f0, v0, e0, v0, f1, v0)))
-    }
+    assert(paths.contains(List(v0, e0, v0, f1, v0)))
+    assert(paths.contains(List(v0, e0, v0, f1, v0, e0, v0, f0, v0)))
+    assert(paths.contains(List(v0, e0, v0, f0, v0)))
+    assert(paths.contains(List(v0, e0, v0, f0, v0, e0, v0, f1, v0)))
+  }
 ```
 
-Experimental table support:
+Experimantal in memory sql support:
 ```scala
-    test("table") {
-      val graph = new TinkerGraph()
-      val v0 = graph.addVertex("v0")
-      val v1 = graph.addVertex("v1")
-      val v2 = graph.addVertex("v2")
-      val v3 = graph.addVertex("v3")
-      val v4 = graph.addVertex("v4")
+  test("sql table properties") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    v0.setProperty("name", "Name0")
 
-      graph.addEdge("e0", v0, v1, "e")
-      graph.addEdge("e1", v1, v3, "e")
-      graph.addEdge("e2", v0, v2, "e")
-      graph.addEdge("e3", v2, v3, "e")
-      graph.addEdge("e4", v2, v4, "e")
+    val v1 = graph.addVertex("v1")
+    v1.setProperty("name", "Name1")
 
-      val expr0 = V("v0") ~ out("e").as("out(e)").+ ~ outE("e").as("outE(e)").?
-      val traces = expr0.run(graph)
+    val v2 = graph.addVertex("v2")
+    v2.setProperty("name", "Name2")
 
-      val table = Table(traces)
-      println(table.pretty)
-    }
+    val v3 = graph.addVertex("v3")
+    v3.setProperty("name", "Name3")
+
+    val v4 = graph.addVertex("v4")
+    v4.setProperty("name", "Name4")
+
+    graph.addEdge("e0", v0, v1, "e").setProperty("weight", 0)
+    graph.addEdge("e1", v0, v2, "e").setProperty("weight", 1)
+    graph.addEdge("e2", v1, v3, "e").setProperty("weight", 2)
+    graph.addEdge("e3", v2, v3, "e").setProperty("weight", 3)
+
+    val sqlQuery = from (
+      (V("v0") ~ outE("e").^[Int]("weight") ~ inV().^[String]("name") ~ out("e")).asTable("t1"),
+      (V("v1") ~ (inE("e") | outE("e")).^[Int]("weight")).asTable("t2")
+    ).extract (
+      """
+      select lower(t1.name) as lowerName, t2.weight
+        from t1, t2
+       where t1.weight <> t2.weight
+       order by t1.weight asc
+      """
+    ) ( printResultSet )
+
+    sqlQuery(graph) // execute at the end
+  }
+```
+
+Output:
+```
+LOWERNAME | WEIGHT
+name1 | 2
+name2 | 0
+name2 | 2
+```
+
+Experimental scala collection table support:
+```scala
+  test("Collection table") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    val v1 = graph.addVertex("v1")
+    val v2 = graph.addVertex("v2")
+    val v3 = graph.addVertex("v3")
+    val v4 = graph.addVertex("v4")
+
+    graph.addEdge("e0", v0, v1, "e")
+    graph.addEdge("e1", v1, v3, "e")
+    graph.addEdge("e2", v0, v2, "e")
+    graph.addEdge("e3", v2, v3, "e")
+    graph.addEdge("e4", v2, v4, "e")
+
+    val expr0 = V("v0") ~ out("e").as("out(e)").+ ~ outE("e").as("outE(e)").?
+    val traces = expr0.run(graph)
+
+    val table = ScalaTable(traces)
+    println(table.pretty)
+  }
 ```
 Output:
 ```
-    |--------------------------|------------|
-    |out(e)                    |outE(e)     |
-    |--------------------------|------------|
-    |List([-e2- v2])           |List()      |
-    |List([-e2- v2])           |List([-e3-])|
-    |List([-e2- v2])           |List([-e4-])|
-    |List([-e3- v3], [-e2- v2])|List()      |
-    |List([-e4- v4], [-e2- v2])|List()      |
-    |List([-e0- v1])           |List()      |
-    |List([-e0- v1])           |List([-e1-])|
-    |List([-e1- v3], [-e0- v1])|List()      |
-    |--------------------------|------------|
+|----------------------------------------------------------------|---------------------------|
+|out(e)                                                          |outE(e)                    |
+|----------------------------------------------------------------|---------------------------|
+|List(List(v[v2], e[e2][v0-e->v2]))                              |List()                     |
+|List(List(v[v2], e[e2][v0-e->v2]))                              |List(List(e[e3][v2-e->v3]))|
+|List(List(v[v2], e[e2][v0-e->v2]))                              |List(List(e[e4][v2-e->v4]))|
+|List(List(v[v3], e[e3][v2-e->v3]), List(v[v2], e[e2][v0-e->v2]))|List()                     |
+|List(List(v[v4], e[e4][v2-e->v4]), List(v[v2], e[e2][v0-e->v2]))|List()                     |
+|List(List(v[v1], e[e0][v0-e->v1]))                              |List()                     |
+|List(List(v[v1], e[e0][v0-e->v1]))                              |List(List(e[e1][v1-e->v3]))|
+|List(List(v[v3], e[e1][v1-e->v3]), List(v[v1], e[e0][v0-e->v1]))|List()                     |
+|----------------------------------------------------------------|---------------------------|
 ```
 
 ## License
