@@ -44,7 +44,7 @@ The following combinators are supported:
   }
 ```
 
-Experimantal in memory sql support:
+Experimental in-memory sql support:
 ```scala
   test("sql table properties") {
     val graph = new TinkerGraph()
@@ -92,6 +92,7 @@ name2 | 0
 name2 | 2
 ```
 
+
 Experimental scala collection table support:
 ```scala
   test("Collection table") {
@@ -130,6 +131,7 @@ Output:
 |List(List(v[v3], e[e1][v1-e->v3]), List(v[v1], e[e0][v0-e->v1]))|List()                     |
 |----------------------------------------------------------------|---------------------------|
 ```
+
 
 ## License
 trails is licensed under the [MIT License](http://www.opensource.org/licenses/mit-license.php).
