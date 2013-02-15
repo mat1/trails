@@ -5,7 +5,7 @@ import scalaz.Show
 import reflect.ClassTag
 import java.sql.{DriverManager, Connection, ResultSet}
 
-
+/*
 trait Tables {
   this: Trails =>
 
@@ -15,7 +15,7 @@ trait Tables {
   type State = Map[Named, List[Any]]
 
 
-  def namedSubPath(keyName: String, tr: Traverser): Traverser =
+  def namedSubPath(keyName: String, tr: Traverser[_]): Traverser =
     name[Path](keyName, tr)((p: Path) => p)
 
   /** Returns a traverser which stores the generated sub-paths in a map with the given name as the key.
@@ -153,3 +153,4 @@ trait Tables {
     }
   }
 }
+*/

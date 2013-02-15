@@ -1,6 +1,7 @@
 package ch.fhnw.imvs.trails
 
 import scalaz.Show
+import scalaz.std.option._
 
 /** trails provides purely functional graph traverser combinators. */
 trait Trails {
@@ -14,17 +15,22 @@ trait Trails {
   /** Type of a path through the graph. */
   type Path = List[PathElement]
 
-  /** Type of the state which is passed along with the Trace */
-  type State
+  // Extending this state by override
+  type StateExtension = Unit
 
-  /** Also a path through the graph but with additional bookkeeping for named sub-paths and cycle detection. */
-  case class Trace(path: Path, visitedPaths: Option[Set[Path]])
+  /** Type of the state which is passed along with the Trace */
+  type State = ((Path, Option[Set[Path]]),StateExtension)
 
   /** A Traverser is a function which takes an Environment (we may use a Reader monad),
     * an input Trace and produces a Stream of subsequent Traces.
     * Traverser is THE compositional unit in trails.
     */
-  type Traverser = Environment => Pair[Trace, State] => Stream[Pair[Trace, State]]
+  type Traverser[A] = Environment => State => Stream[(State,A)]
+
+  final case class ~[+A,+B](a: A, b: B) // Product
+  sealed trait |[+A,+B] // Sum
+  final case class <|[A](a: A) extends |[A,Nothing]
+  final case class |>[B](a: B) extends |[Nothing,B]
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
     * and then feeds the results into the snd traverser.
@@ -32,108 +38,107 @@ trait Trails {
     * @param snd the subsequent traverser to apply
     * @return the sequential composition of fst and snd
     */
-  def seq(fst: Traverser, snd: Traverser): Traverser =
-    env => t => fst(env)(t).flatMap(snd(env))
+  def seq[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
+    env => s0 => for { (s1,a) <- fst(env)(s0); (s2,b) <- snd(env)(s1) } yield (s2, new ~(a,b))
 
   /** Returns the 'parallel' composition of the two given traversers which follows both alternatives.
     * @param either one of the traverser to follow
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  def choice(either: Traverser, or: Traverser): Traverser =
-    env => t => either(env)(t) ++ or(env)(t)
+  def choice[A,B](either: Traverser[A], or: => /* this is important */ Traverser[B]): Traverser[A|B] =
+    env => s0 => {
+      (map[A,A|B](either) { a => new <|(a) }(env)(s0)) #::: map[B,A|B](or) { a => new |>(a) }(env)(s0)
+    }
 
   /** Returns a traverser which optionally follows the given traverser.
     * @param tr the traverser to follow optionally
     * @return a traverser which optionally follows the given traverser
     */
-  def optional(tr: Traverser): Traverser =
-    choice(accept, tr)
+  def optional[A](tr: Traverser[A]): Traverser[Option[A]] =
+    map(choice(success(none[A]), map(tr)(some[A]))){
+      case <|(a) => a
+      case |>(a) => a
+    }
 
   /** Returns a traverser which repeats the given traverser 0..* times.
     * @param tr the traverser to be repeated
-    * @return a traverser which repeats the given traverser
+    * @return a traverser which repeats the given traverserN
     */
-  def many(tr: Traverser): Traverser =
+  def many[A](tr: Traverser[A]): Traverser[Stream[A]] =
     withCycleDetection(internal_many(tr))
+
+  def internal_many[A](tr: Traverser[A]): Traverser[Stream[A]] =
+    map(choice(success(Stream()),internal_many1(tr))){
+      case <|(a) => a
+      case |>(a) => a
+    }
 
   /** Returns a traverser which repeats the given traverser 1..* times.
     * @param tr the traverser to be repeated
     * @return a traverser which repeats the given traverser
     */
-  def many1(tr: Traverser): Traverser =
+  def many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
     withCycleDetection(internal_many1(tr))
+    //map(seq(tr, many(tr))){ case a ~ b => a #:: b }
 
-  private def withCycleDetection(tr: Traverser): Traverser = {
-    env => ts =>
-      val (trace, state) = ts
-      // store the set of already visited paths
-      val currentVisitedEdges = trace.visitedPaths
-      // run the given traverser within a new context
-      val res = tr(env)((trace.copy(visitedPaths = Some(Set())),state))
-      // restore the set of already visited paths
-      res.map { case (t, s) => (t.copy(visitedPaths = currentVisitedEdges), s) }
-  }
-
-  private def internal_many(tr: Traverser): Traverser =
-    choice(accept, internal_many1(tr))
-
-  private def internal_many1(tr: Traverser): Traverser =
+  private def internal_many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
     env => ts => {
-      val (trace, state) = ts
-      val size = trace.path.size
-      tr(env)(ts).flatMap { case (Trace(path, Some(visitedPaths)), state) =>
+      val ((path, _), _) = ts
+      val size = path.size
+      tr(env)(ts).flatMap { case (((path, Some(visitedPaths)), state),v) =>
         val currentEvaluation = path.take(path.size - size)
         if (visitedPaths(currentEvaluation)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else internal_many(tr)(env)((Trace(path, Some(visitedPaths + currentEvaluation)), state))
+        else map(internal_many(tr)) { vs => v #:: vs }(env)(((path, Some(visitedPaths + currentEvaluation)), state))
       }
     }
 
 
+  private def withCycleDetection[A](tr: Traverser[A]): Traverser[A] = {
+    env => ts =>
+      val ((path, visitedPaths), e) = ts
+      // store the set of already visited paths
+      val currentVisitedEdges = visitedPaths
+      // run the given traverser within a new context
+      val res = tr(env)(((path, Some(Set())),e))
+      // restore the set of already visited paths
+      res.map { case (((t,_), s),v) => (((t,currentVisitedEdges), s),v) }
+  }
+
+
+  def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
+    env => ts => tr(env)(ts).map{ case (s,a) => (s,f(a)) }
+
   /** Returns a traverser which returns its input as the output.
     * @return a traverser which returns its input
     */
-  def accept: Traverser =
-    _ => t => Stream(t)
+  def success[A](a: A): Traverser[A] =
+    _ => s0 => Stream((s0,a))
 
   /** Returns a traverser which drops its input and returns a empty output.
     * @return a traverser which drops its input
     */
-  def fail: Traverser =
+  def fail[A]: Traverser[A] =
     _ => _ => Stream()
 
-  /** Returns a traverser which filters its input trace using the given predicate.
-    * @param p the predicate
-    * @return a traverser which filters its input trace
-    */
-  def filter(p: Pair[Trace,State] => Boolean): Traverser =
-    env => t => if(p(t)) Stream(t) else Stream()
-
-  /** Returns a traverser which filters the head of its input trace using the given predicate.
-    * @param p the predicate
-    * @return a traverser which filters the head of its input trace
-    */
-  def filterHead(p: PathElement => Boolean): Traverser =
-    filter(t => t match { case (Trace(head :: rest, _), state) => p(head)} )
-
   /** Provides some nice infix syntax. */
-  implicit class Syntax(t1: Traverser) {
-    def ~(t2: Traverser): Traverser = seq(t1, t2)
-    def |(t2: Traverser): Traverser = choice(t1, t2)
-    def ? : Traverser = optional(t1)
-    def * : Traverser = many(t1)
-    def + : Traverser = many1(t1)
+  implicit class Syntax[A](t1: Traverser[A]) {
+    def ~[B](t2: Traverser[B]): Traverser[A~B] = seq(t1, t2)
+    def ~>[B](t2: Traverser[B]): Traverser[B] = map(seq(t1, t2)){ case a ~ b => b }
+    def <~[B](t2: Traverser[B]): Traverser[A] = map(seq(t1, t2)){ case a ~ b => a }
+    def |(t2: Traverser[A]): Traverser[A|A] = choice(t1, t2)
+    def ? : Traverser[Option[A]] = optional(t1)
+    def * : Traverser[Stream[A]] = many(t1)
+    def + : Traverser[Stream[A]] = many1(t1)
 
-    def run(e: Environment, s: State) = t1(e)((Trace(Nil, None),s))
+    def ^^[B](f: A => B): Traverser[B] = map(t1)(f)
+
+    def run(e: Environment, s: StateExtension) = t1(e)(((Nil, None),s))
   }
 
   // Show instances
   implicit def showPath(implicit showPathElem: Show[PathElement]): Show[Path]  = new Show[Path] {
     override def shows(p: Path): String = p.reverse.map(showPathElem.show).mkString("["," ","]")
-  }
-
-  implicit def showTrace(implicit showPathElem: Show[PathElement]): Show[Trace] = new Show[Trace] {
-    override def shows(t: Trace): String = s"Trace(${Show[Path].shows(t.path)})"
   }
 }
 
