@@ -88,7 +88,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val e0 = graph.addEdge("e0", v0, v0, "e")
 
-    val expr0 = V ~ out("e") ~> choice(out("f"),optional(out("e"))) ^^ { case |>(b) => b } // left will always fail
+    val expr0 = V ~ out("e") ~> choice(out("f"),optional(out("e")))
 
     val traces = expr0.run(graph, (Nil, ()))
     val pathsAndValues = traces.map(t => (t._1._1._1.reverse, t._2))

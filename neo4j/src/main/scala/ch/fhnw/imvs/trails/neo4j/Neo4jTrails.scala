@@ -37,10 +37,10 @@ trait Neo4jTrails extends Trails with Tables {
     }
 
   def out(edgeName: String): Traverser =
-    seq(outE(edgeName), inV())
+    product(outE(edgeName), inV())
 
   def in(edgeName: String): Traverser =
-    seq(inE(edgeName), outV())
+    product(inE(edgeName), outV())
 
   def V(): Traverser =
     env => ts => GlobalGraphOperations.at(env).getAllNodes().toStream.map(v => (Trace(List(v), None), ts._2))
