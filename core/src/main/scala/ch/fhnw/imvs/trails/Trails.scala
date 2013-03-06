@@ -12,20 +12,15 @@ trait Trails {
   /** Type of a single element in the graph. Typically a common super type of Vertex and Edge. */
   type PathElement
 
-  /** Type of a path through the graph. */
   type Path = List[PathElement]
 
-  // Extending this state by override
-  type StateExtension = Unit
+  type State = (Path, Option[Set[Path]])
 
-  /** Type of the state which is passed along with the Trace */
-  type State = ((Path, Option[Set[Path]]),StateExtension)
-
-  /** A Traverser is a function which takes an Environment (we may use a Reader monad),
-    * an input Trace and produces a Stream of subsequent Traces.
-    * Traverser is THE compositional unit in trails.
-    */
   type Traverser[+A] = Environment => State => Stream[(State,A)]
+
+  object Traverser {
+    def paths[A](tr: Traverser[A], env: Environment, in: State = (Nil,None)): Stream[Path] = tr(env)(in).map(_._1._1.reverse)
+  }
 
   final case class ~[+A,+B](a: A, b: B) // Product
   sealed trait |[+A,+B] // Sum
@@ -63,10 +58,10 @@ trait Trails {
 
   def slice[A](tr: Traverser[A]): Traverser[(Path,A)] =
     env => st => {
-    val ((path, _), _) = st
+    val (path, _) = st
     val size = path.size
-    tr(env)(st).map { case (((path, visitedPaths), state),a) =>
-      (((path, visitedPaths), state), (path.take(path.size - size), a))
+    tr(env)(st).map { case ((path, visitedPaths),a) =>
+      ((path, visitedPaths), (path.take(path.size - size), a))
     }
   }
 
@@ -99,9 +94,9 @@ trait Trails {
 
   private def internal_many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
     env => st => {
-      slice(tr)(env)(st).flatMap { case (((path, Some(visitedPaths)), state),(slice, v)) =>
+      slice(tr)(env)(st).flatMap { case ((path, Some(visitedPaths)),(slice, v)) =>
         if (visitedPaths(slice)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else map(internal_many(tr)) { vs => v #:: vs }(env)(((path, Some(visitedPaths + slice)), state))
+        else map(internal_many(tr)) { vs => v #:: vs }(env)((path, Some(visitedPaths + slice)))
       }
 
       /*val ((path, _), _) = st
@@ -116,13 +111,12 @@ trait Trails {
 
   private def withCycleDetection[A](tr: Traverser[A]): Traverser[A] = {
     env => ts =>
-      val ((path, visitedPaths), e) = ts
       // store the set of already visited paths
-      val currentVisitedEdges = visitedPaths
+      val (path, currentVisitedEdges) = ts
       // run the given traverser within a new context
-      val res = tr(env)(((path, Some(Set())),e))
+      val res = tr(env)((path, Some(Set())))
       // restore the set of already visited paths
-      res.map { case (((t,_), s),v) => (((t,currentVisitedEdges), s),v) }
+      res.map { case ((t,_),v) => ((t,currentVisitedEdges),v) }
   }
 
 
@@ -155,7 +149,7 @@ trait Trails {
 
     def ^^[B](f: A => B): Traverser[B] = map(t1)(f)
 
-    def run(e: Environment, s: StateExtension) = t1(e)(((Nil, None),s))
+    def run(e: Environment) = t1(e)((Nil, None))
   }
 
   // Show instances

@@ -23,8 +23,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~ out("f") ~ out("g") ~ out("e")
 
-    val traces = expr0.run(graph, (Nil, ()))
-    val paths = traces.map(t => t._1._1._1.reverse)
+    val paths = Traverser.paths(expr0, graph)
 
     assert(paths.size === 1)
     assert(paths.head === List(v0, e0, v1, f0, v1, g0, v1, e1, v2))
@@ -42,8 +41,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e").+
 
-    val traces = expr0.run(graph, (Nil, ()))
-    val paths = traces.map(t => t._1._1._1.reverse)
+    val paths = Traverser.paths(expr0, graph)
 
     assert(paths.size === 3)
     assert(paths contains List(v0, e0, v1))
@@ -59,8 +57,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e").+
 
-    val traces = expr0.run(graph, (Nil, ()))
-    val paths = traces.map(t => t._1._1._1.reverse)
+    val paths = Traverser.paths(expr0, graph)
 
     assert(paths.size === 1)
     assert(paths contains List(v0, e0, v0))
@@ -74,8 +71,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~ optional(out("f")) ~ optional(out("e"))
 
-    val traces = expr0.run(graph, (Nil, ()))
-    val paths = traces.map(t => t._1._1._1.reverse)
+    val paths = Traverser.paths(expr0, graph)
 
     assert(paths.size === 2)
     assert(paths contains List(v0, e0, v0))
@@ -90,8 +86,8 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~> choice(out("f"),optional(out("e")))
 
-    val traces = expr0.run(graph, (Nil, ()))
-    val pathsAndValues = traces.map(t => (t._1._1._1.reverse, t._2))
+    val traces = expr0.run(graph)
+    val pathsAndValues = traces.map(t => (t._1._1.reverse, t._2))
     println(pathsAndValues.force)
 
     assert(pathsAndValues.size === 2)
@@ -108,8 +104,8 @@ class BlueprintTrailsTest extends FunSuite {
 
 
     val expr0 = V ~> out("e").*
-    val traces = expr0.run(graph, (Nil, ()))
-    val pathsAndValues = traces.take(3).map(t => (t._1._1._1.reverse, t._2.toList))
+    val traces = expr0.run(graph)
+    val pathsAndValues = traces.take(3).map(t => (t._1._1.reverse, t._2.toList))
 
     assert(pathsAndValues.size === 2)
     assert(pathsAndValues contains (List(v0),List()))
