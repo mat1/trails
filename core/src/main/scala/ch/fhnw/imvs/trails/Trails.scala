@@ -112,13 +112,13 @@ trait Trails { self =>
     choice(map(success(()))(_ => none[A]), map(tr)(some[A]))
 
   def slice[A](tr: Traverser[A]): Traverser[(Path,A)] =
-    env => st => {
-    val (path, _, _) = st
-    val size = path.size
-    tr(env)(st).map { case ((path, visitedPaths, l),a) =>
-      ((path, visitedPaths, l), (path.take(path.size - size), a))
-    }
-  }
+    for {
+      (p1,_,_) <- getState
+      a        <- tr
+      (p2,_,_) <- getState
+      sl = p2.take(p2.size - p1.size)
+    } yield (sl, a)
+
 
   /** Returns a traverser which repeats the given traverser 0..* times.
     * @param tr the traverser to be repeated
@@ -148,34 +148,19 @@ trait Trails { self =>
     //map(product(tr, many(tr))){ case a ~ b => a #:: b }
 
   private def internal_many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
-    env => st => {
-      slice(tr)(env)(st).flatMap { case ((path, Some(visitedPaths), l),(slice, v)) =>
-        if (visitedPaths(slice)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else map(internal_many(tr)) { vs => v #:: vs }(env)((path, Some(visitedPaths + slice), l))
-      }
+    for { (sl,a)        <- slice(tr)
+          (p,Some(c),l) <- getState if !c.contains(sl)
+          _             <- setState((p, Some(c+sl),l))
+          vs <- internal_many(tr)
+    } yield a #:: vs
 
-      /*val ((path, _), _) = st
-      val size = path.size
-      tr(env)(st).flatMap { case (((path, Some(visitedPaths)), state),v) =>
-        val currentEvaluation = path.take(path.size - size)
-        if (visitedPaths(currentEvaluation)) Stream()   // println("Found Cycle: Repeating pattern" + currentEvaluation.reverse.map(format) + " Current set: " + visited.map(_.reverse.map(format)) + " base trace: " + t)
-        else map(internal_many(tr)) { vs => v #:: vs }(env)(((path, Some(visitedPaths + currentEvaluation)), state))
-      }*/
-    }
-
-
-  private def newCycleScope[A](tr: Traverser[A]): Traverser[A] = {
-    env => ts =>
-      // store the set of already visited paths
-      val (path, currentVisitedEdges, l) = ts
-      // run the given traverser within a new context
-      val res = tr(env)((path, Some(Set()), l))
-      // restore the set of already visited paths
-      res.map { case ((t,_,l),v) => ((t,currentVisitedEdges,l),v) }
-  }
-
-
-
+  private def newCycleScope[A](tr: Traverser[A]): Traverser[A] =
+    for {
+      (p1,c1,l1) <- getState
+      _          <- setState((p1, Some(Set()),l1))
+      res        <- tr
+      _          <- updateState(s => s.copy(_2 = c1))
+    } yield res
 
   /** Returns a traverser which returns its input as the output.
     * @return a traverser which returns its input
