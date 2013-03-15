@@ -28,8 +28,8 @@ trait BlueprintTrails extends Trails{
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
     e => ts => ts match {
-      case (path@((head: Vertex) :: rest), visitedPaths) =>
-        head.getEdges(dir, edgeName).toStream.map { edge => (((edge :: path), visitedPaths), edge) }
+      case (path@((head: Vertex) :: rest), visitedPaths, l) =>
+        head.getEdges(dir, edgeName).toStream.map { edge => (((edge :: path), visitedPaths, l), edge) }
     }
 
   def outV(): Traverser[Vertex] =
@@ -40,9 +40,9 @@ trait BlueprintTrails extends Trails{
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     _ => ts => ts match {
-      case (path@((head: Edge) :: rest), visitedPaths) => {
+      case (path@((head: Edge) :: rest), visitedPaths, l) => {
         val v = head.getVertex(dir)
-        Stream((((v :: path), visitedPaths), v))
+        Stream((((v :: path), visitedPaths, l), v))
       }
     }
 
@@ -54,23 +54,23 @@ trait BlueprintTrails extends Trails{
 
   def V(): Traverser[Vertex] =
     env => ts => env.getVertices.toStream.map { node =>
-      ((List(node), None),node)
+      ((List(node), None, Map[String,List[Path]]()),node)
     }
 
   def V(id: AnyRef): Traverser[Vertex] =
     env => ts => {
       val node = env.getVertex(id)
-      Stream(((List(node), None),node))
+      Stream(((List(node), None, Map()),node))
     }
 
   def E(): Traverser[Edge] =
     env => ts => env.getEdges.toStream.map { edge =>
-      ((List(edge), None),edge)
+      ((List(edge), None, Map[String,List[Path]]()), edge)
     }
 
   def E(id: AnyRef): Traverser[Edge] =
     env => ts => {
       val edge = env.getEdge(id)
-      Stream(((List(edge), None),edge))
+      Stream(((List(edge), None, Map()),edge))
     }
 }
