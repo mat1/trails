@@ -60,24 +60,65 @@ trait Trails { self =>
   def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
     env => ts => tr(env)(ts).filter { case (s,a) => f(a) }
 
+
   def map2[A,B,C](ta: Traverser[A], tb: Traverser[B])(f: (A,B) => C): Traverser[C] =
     for {a <- ta; b <- tb} yield f(a,b)
 
+  def getEnv: Traverser[Environment] =
+    env => st => Stream((st, env))
 
   def getState: Traverser[State] =
-    env => ts => Stream((ts, ts))
+    env => st => Stream((st, st))
 
   def setState(state: State): Traverser[Unit] =
     env => _ => Stream((state, ()))
 
   def updateState(f: State => State): Traverser[Unit] =
-    for { s <- getState } yield setState(f(s))
+    for {
+      s <- getState
+      _ <- setState(f(s))
+    } yield ()
+
+  def getPath: Traverser[Path] =
+    for { (p,c,l) <- getState } yield p
+
+  def setPath(p: Path): Traverser[Unit] =
+    for {
+      (_, c, l)  <- getState
+      _          <- setState((p, c, l))
+    } yield ()
+
+  def updatePath(f: Path => Path): Traverser[Unit] =
+    updateState { case (p, c, l) => (f(p), c, l) }
+
+  def getCycles: Traverser[Option[Set[Path]]] =
+    for { (p,c,l) <- getState } yield c
+
+  def setCycles(c: Option[Set[Path]]): Traverser[Unit] =
+    for {
+      (p, _, l)  <- getState
+      _          <- setState((p, c, l))
+    } yield ()
+
+  def updateCycles(f: Option[Set[Path]] => Option[Set[Path]]): Traverser[Unit] =
+    updateState { case (p, c, l) => (p, f(c), l) }
+
+  def getLabels: Traverser[Map[String,List[Path]]] =
+    for { (p,c,l) <- getState } yield l
+
+  def updateLabels(f: Map[String,List[Path]] => Map[String,List[Path]]): Traverser[Unit] =
+    updateState { case (p, c, l) => (p, c, f(l)) }
+
 
   def addLabel[A](label: String)(t: Traverser[A]): Traverser[A] =
-    for { (sl,a) <- slice(t); _ <- updateState( s => s.copy(_3 = s._3.updated(label, sl :: s._3.getOrElse(label, Nil)))) } yield a
+    for {
+      (sl,a) <- slice(t)
+      _      <- updateLabels(l => l.updated(label, sl :: l.getOrElse(label, Nil)))
+    } yield a
 
   def getLabel[A](label: String): Traverser[List[Path]] =
-    map(getState)(s => s._3.getOrElse(label, Nil))
+    for { l <- getLabels } yield l.getOrElse(label, Nil)
+
 
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
@@ -96,7 +137,7 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  def choice[A,B](either: Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
+  def choice[A](either: Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
     env => s0 => either(env)(s0) #::: (or(env)(s0))
   /*
       env => s0 => {
@@ -113,9 +154,9 @@ trait Trails { self =>
 
   def slice[A](tr: Traverser[A]): Traverser[(Path,A)] =
     for {
-      (p1,_,_) <- getState
-      a        <- tr
-      (p2,_,_) <- getState
+      p1 <- getPath
+      a  <- tr
+      p2 <- getPath
       sl = p2.take(p2.size - p1.size)
     } yield (sl, a)
 
@@ -148,18 +189,18 @@ trait Trails { self =>
     //map(product(tr, many(tr))){ case a ~ b => a #:: b }
 
   private def internal_many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
-    for { (sl,a)        <- slice(tr)
-          (p,Some(c),l) <- getState if !c.contains(sl)
-          _             <- setState((p, Some(c+sl),l))
-          vs <- internal_many(tr)
-    } yield a #:: vs
+    for { (sl,a)  <- slice(tr)
+          Some(c) <- getCycles if !c.contains(sl)
+          _       <- setCycles(Some(c+sl))
+          as      <- internal_many(tr)
+    } yield a #:: as
 
   private def newCycleScope[A](tr: Traverser[A]): Traverser[A] =
     for {
-      (p1,c1,l1) <- getState
-      _          <- setState((p1, Some(Set()),l1))
-      res        <- tr
-      _          <- updateState(s => s.copy(_2 = c1))
+      c1  <- getCycles
+      _   <- setCycles(Some(Set()))
+      res <- tr
+      _   <- setCycles(c1)
     } yield res
 
   /** Returns a traverser which returns its input as the output.
