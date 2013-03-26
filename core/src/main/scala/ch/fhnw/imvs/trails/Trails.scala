@@ -58,14 +58,18 @@ trait Trails { self =>
   final case class <|[A](a: A) extends |[A,Nothing]
   final case class |>[B](a: B) extends |[Nothing,B]
 
-  def flatMap[A,B](t: => Traverser[A])(f: A => Traverser[B]): Traverser[B] =
+  def flatMap[A,B](t: Traverser[A])(f: A => Traverser[B]): Traverser[B] =
     env => s0 => for { (s1,a) <- t(env)(s0); (s2,b) <- f(a)(env)(s1) } yield (s2, b)
 
-  def map[A,B](tr: => Traverser[A])(f: A => B): Traverser[B] =
+  def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
     env => ts => tr(env)(ts).map { case (s,a) => (s,f(a)) }
 
-  def filter[A](tr: => Traverser[A])(f: A => Boolean): Traverser[A] =
+  def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
     env => ts => tr(env)(ts).filter { case (s,a) => f(a) }
+
+
+  def map2[A,B,C](ta: Traverser[A], tb: Traverser[B])(f: (A,B) => C): Traverser[C] =
+    for {a <- ta; b <- tb} yield f(a,b)
 
   def getEnv: Traverser[Environment] =
     env => st => Stream((st, env))
@@ -130,7 +134,7 @@ trait Trails { self =>
     * @param snd the subsequent traverser to apply
     * @return the sequential composition of fst and snd
     */
-  def product[A,B](fst: Traverser[A], snd: => Traverser[B]): Traverser[A~B] =
+  def product[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
     flatMap(fst)(a => map(snd)(b => new ~(a,b)))
 
 
@@ -140,7 +144,7 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  def choice[A](either: => Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
+  def choice[A](either: Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
     env => s0 => either(env)(s0) #::: (or(env)(s0))
   /*
       env => s0 => {
@@ -187,7 +191,7 @@ trait Trails { self =>
     * @param tr the traverser to be repeated
     * @return a traverser which repeats the given traverser
     */
-  def many1[A](tr: => Traverser[A]): Traverser[Stream[A]] =
+  def many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
     newCycleScope(internal_many1(tr))
   /*
     for {
