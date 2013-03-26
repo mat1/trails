@@ -10,7 +10,6 @@ import reflect.ClassTag
 trait BlueprintTrails extends Trails{
   type Environment = Graph
   type PathElement = Element
-  type AdditionalState = Unit
 
   implicit val showElement: Show[PathElement] = new Show[PathElement] {
     override def shows(e: PathElement) = e match {
@@ -28,8 +27,8 @@ trait BlueprintTrails extends Trails{
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
     e => ts => ts match {
-      case (path@((head: Vertex) :: rest), visitedPaths, l) =>
-        head.getEdges(dir, edgeName).toStream.map { edge => (((edge :: path), visitedPaths, l), edge) }
+      case (path@((head: Vertex) :: rest), c, l) =>
+        head.getEdges(dir, edgeName).toStream.map { edge => (((edge :: path), c, l), edge) }
     }
 
   def outV(): Traverser[Vertex] =
@@ -61,7 +60,7 @@ trait BlueprintTrails extends Trails{
     for {
       env  <- getEnv
       node = env.getVertex(id)
-      _    <- updatePath(p => node :: p)
+      _    <- updatePath(p => node :: p) //TODO extend path or drop it on V()
     } yield node
 
 

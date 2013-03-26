@@ -42,7 +42,11 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e").+
 
-    val paths = Traverser.paths(expr0, graph)
+    val paths = Traverser.paths(expr0, graph).take(3)
+
+    println("hei")
+println(paths.force)
+    println("hei")
 
     assert(paths.size === 3)
     assert(paths contains List(v0, e0, v1))
@@ -128,7 +132,7 @@ class BlueprintTrailsTest extends FunSuite {
       l <- getLabel("X") //if l.map(_.head).inter
     } yield (l.map(_.head),ns.mkString("[",", ","]"))
 
-    val labels = Traverser.all(expr0, graph).force
+  //  val labels = Traverser.all(expr0, graph).force
 
    // println("labels")
    // println(labels.mkString("\n"))
@@ -180,10 +184,33 @@ class BlueprintTrailsTest extends FunSuite {
 
 
 
-    val labels = Traverser.all(impactOfChangeOnView, graph).force
+    //val labels = Traverser.all(impactOfChangeOnView, graph).force
+
+   // println("labels")
+   // println(labels.mkString("\n"))
+  }
+
+  test("order") {
+    val graph = new TinkerGraph()
+    val v0 = graph.addVertex("v0")
+    val v1 = graph.addVertex("v1")
+    val v2 = graph.addVertex("v2")
+    val v3 = graph.addVertex("v3")
+    val v4 = graph.addVertex("v4")
+    val v5 = graph.addVertex("v5")
+    val v6 = graph.addVertex("v6")
+
+    graph.addEdge("e0", v0, v1, "e"); graph.addEdge("e1", v1, v2, "e")
+    graph.addEdge("e2", v0, v3, "e")
+    graph.addEdge("e3", v0, v4, "e"); graph.addEdge("e4", v4, v5, "e"); graph.addEdge("e5", v5, v6, "e")
+
+    val expr0 = V("v0") ~ out("e").+ ^^ {case v0 ~ es => es.take(2)}
+
+    val labels = Traverser.all(expr0, graph).take(10)
 
     println("labels")
     println(labels.mkString("\n"))
+
   }
 }
 
