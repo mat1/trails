@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.neo4j
-
+/*
 import org.neo4j.graphdb._
 import org.neo4j.graphdb.Direction._
 import org.neo4j.tooling.GlobalGraphOperations
@@ -68,3 +68,4 @@ trait Neo4jTrails extends Trails with Tables {
   def show(t: Trace): String =
     "Trace" + t.path.reverse.map(format).mkString("["," ","]")
 }
+*/
