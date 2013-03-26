@@ -24,7 +24,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~ out("f") ~ out("g") ~ out("e")
 
-    val paths = Traverser.paths(expr0, graph)
+    val paths = Traverser.run(expr0, graph).map(_._1)
 
     assert(paths.size === 1)
     assert(paths.head === List(v0, e0, v1, f0, v1, g0, v1, e1, v2))
@@ -42,11 +42,8 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e").+
 
-    val paths = Traverser.paths(expr0, graph).take(3)
+    val paths = Traverser.run(expr0, graph).map(_._1).take(3)
 
-    println("hei")
-println(paths.force)
-    println("hei")
 
     assert(paths.size === 3)
     assert(paths contains List(v0, e0, v1))
@@ -62,7 +59,7 @@ println(paths.force)
 
     val expr0 = V ~ out("e").+
 
-    val paths = Traverser.paths(expr0, graph)
+    val paths = Traverser.run(expr0, graph).map(_._1).take(1)
 
     assert(paths.size === 1)
     assert(paths contains List(v0, e0, v0))
@@ -76,7 +73,7 @@ println(paths.force)
 
     val expr0 = V ~ out("e") ~ optional(out("f")) ~ optional(out("e"))
 
-    val paths = Traverser.paths(expr0, graph)
+    val paths = Traverser.run(expr0, graph).map(_._1).take(2)
 
     assert(paths.size === 2)
     assert(paths contains List(v0, e0, v0))
@@ -91,7 +88,7 @@ println(paths.force)
 
     val expr0 = V ~ out("e") ~> choice(out("f"),optional(out("e")))
 
-    val pathsAndValues = Traverser.run(expr0, graph)
+    val pathsAndValues = Traverser.run(expr0, graph).take(2)
 
     assert(pathsAndValues.size === 2)
     assert(pathsAndValues contains (List(v0, e0, v0), None))
@@ -107,35 +104,11 @@ println(paths.force)
 
 
     val expr0 = V ~> out("e").*
-    val pathsAndValues = Traverser.run(expr0, graph)
+    val pathsAndValues = Traverser.run(expr0, graph).take(2)
 
     assert(pathsAndValues.size === 2)
     assert(pathsAndValues contains (List(v0),List()))
     assert(pathsAndValues contains (List(v0,e0,v0),List(v0)))
-  }
-
-  test("label") {
-    val graph = new TinkerGraph()
-    val v0 = graph.addVertex("v0")
-    val v1 = graph.addVertex("v1")
-    val v2 = graph.addVertex("v2")
-    val v3 = graph.addVertex("v3")
-
-    val e0 = graph.addEdge("e0", v0, v1, "e")
-    val e1 = graph.addEdge("e1", v1, v0, "e")
-    val e2 = graph.addEdge("e2", v1, v3, "e")
-
-
-    val expr0 = for {
-      _ <- addLabel("X")(V())
-      ns <- out("e").*
-      l <- getLabel("X") //if l.map(_.head).inter
-    } yield (l.map(_.head),ns.mkString("[",", ","]"))
-
-  //  val labels = Traverser.all(expr0, graph).force
-
-   // println("labels")
-   // println(labels.mkString("\n"))
   }
 
   test("transitive closure") {
@@ -206,10 +179,7 @@ println(paths.force)
 
     val expr0 = V("v0") ~ out("e").+ ^^ {case v0 ~ es => es.take(2)}
 
-    val labels = Traverser.all(expr0, graph).take(10)
 
-   // println("labels")
-   // println(labels.mkString("\n"))
   }
 }
 

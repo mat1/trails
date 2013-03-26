@@ -11,13 +11,6 @@ trait BlueprintTrails extends Trails{
   type Environment = Graph
   type PathElement = Element
 
-  implicit val showElement: Show[PathElement] = new Show[PathElement] {
-    override def shows(e: PathElement) = e match {
-      case v:Vertex => v.getId.toString
-      case e:Edge => "-" + e.getId.toString + "-"
-    }
-  }
-
   // Gremlin like operations
   def outE(edgeName: String): Traverser[Edge] =
     ontoE(edgeName, OUT)
@@ -26,9 +19,9 @@ trait BlueprintTrails extends Trails{
     ontoE(edgeName, IN)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
-    e => ts => ts match {
-      case (path@((head: Vertex) :: rest), c, l) =>
-        head.getEdges(dir, edgeName).toStream.map { edge => (((edge :: path), c, l), edge) }
+    e => path => path match {
+      case (head: Vertex) :: rest =>
+        head.getEdges(dir, edgeName).toStream.map { edge => ((edge :: path), edge) }
     }
 
   def outV(): Traverser[Vertex] =
@@ -39,9 +32,9 @@ trait BlueprintTrails extends Trails{
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     for {
-      path@((head: Edge) :: rest) <- getPath
+      path@((head: Edge) :: rest) <- getState
       v = head.getVertex(dir)
-      _ <- setPath(v :: path)
+      _ <- setState(v :: path)
     } yield v
 
 
@@ -52,26 +45,22 @@ trait BlueprintTrails extends Trails{
     inE(edgeName) ~> outV()
 
   def V(): Traverser[Vertex] =
-    env => ts => env.getVertices.toStream.map { node =>
-      ((List(node), None, Map[String,List[Path]]()),node)
-    }
+    env => path => env.getVertices.toStream.map { node => (node :: path, node) }
 
   def V(id: AnyRef): Traverser[Vertex] =
     for {
       env  <- getEnv
       node = env.getVertex(id)
-      _    <- updatePath(p => node :: p) //TODO extend path or drop it on V()
+      _    <- updateState(p => node :: p) //TODO extend path or drop it on V()
     } yield node
 
   def E(): Traverser[Edge] =
-    env => ts => env.getEdges.toStream.map { edge =>
-      ((List(edge), None, Map[String,List[Path]]()), edge)
-    }
+    env => path => env.getEdges.toStream.map { edge => (edge :: path, edge) }
 
   def E(id: AnyRef): Traverser[Edge] =
     for {
       env  <- getEnv
       edge = env.getEdge(id)
-      _    <- updatePath(p => edge :: p)
+      _    <- updateState(p => edge :: p)
     } yield edge
 }
