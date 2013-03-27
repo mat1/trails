@@ -1,7 +1,5 @@
 package ch.fhnw.imvs.trails
 
-import scalaz.Show
-import scalaz.std.option._
 import scala.language.implicitConversions
 
 /** trails provides purely functional graph traverser combinators. */
@@ -15,14 +13,12 @@ trait Trails { self =>
 
   type Path = List[PathElement]
 
-  type State = Path
-
-  type Traverser[+A] = Environment => State => Stream[(State,A)]
+  type Traverser[+A] = Environment => Path => Stream[(Path,A)]
 
   object Traverser {
-    def run[A](tr: Traverser[A], env: Environment): Stream[(Path,A)] = tr(env)(Nil).map { case (path,a) => (path.reverse,a) }
+    def run[A](tr: Traverser[A], env: Environment): Stream[(Path,A)] =
+      tr(env)(Nil).map { case (path,a) => (path.reverse,a) }
   }
-
 
   /** Provides some nice infix syntax. */
   implicit class Syntax[A](t1: Traverser[A]) {
@@ -55,27 +51,27 @@ trait Trails { self =>
   final case class |>[B](a: B) extends <|>[Nothing,B]
 
   def flatMap[A,B](t: Traverser[A])(f: A => Traverser[B]): Traverser[B] =
-    env => s0 => for { (s1,a) <- t(env)(s0); (s2,b) <- f(a)(env)(s1) } yield (s2, b)
+    env => path0 => for { (path1,a) <- t(env)(path0); (path2,b) <- f(a)(env)(path1) } yield (path2, b)
 
   def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
-    env => ts => tr(env)(ts).map { case (s,a) => (s,f(a)) }
+    env => path => tr(env)(path).map { case (s,a) => (s,f(a)) }
 
   def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
-    env => ts => tr(env)(ts).filter { case (s,a) => f(a) }
+    env => path => tr(env)(path).filter { case (s,a) => f(a) }
 
   def getEnv: Traverser[Environment] =
-    env => st => Stream((st, env))
+    env => path => Stream((path, env))
 
-  def getState: Traverser[State] =
-    env => st => Stream((st, st))
+  def getPath: Traverser[Path] =
+    env => path => Stream((path, path))
 
-  def setState(state: State): Traverser[Unit] =
+  def setPath(state: Path): Traverser[Unit] =
     env => _ => Stream((state, ()))
 
-  def updateState(f: State => State): Traverser[Unit] =
+  def updatePath(f: Path => Path): Traverser[Unit] =
     for {
-      s <- getState
-      _ <- setState(f(s))
+      s <- getPath
+      _ <- setPath(f(s))
     } yield ()
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
@@ -92,8 +88,8 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  def choice[A](either: Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
-    env => s0 => either(env)(s0) #::: (or(env)(s0))
+  def choice[A](either: => Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
+    env => path => either(env)(path) append (or(env)(path))
   /*
       env => s0 => {
       (map[A,A|B](either) { a => new <|(a) }(env)(s0)) #::: map[B,A|B](or) { a => new |>(a) }(env)(s0)

@@ -1,17 +1,39 @@
 package ch.fhnw.imvs.trails.blueprint
 
-import com.tinkerpop.blueprints.Direction._
-import com.tinkerpop.blueprints._
+
 import scala.collection.JavaConversions._
-import ch.fhnw.imvs.trails.{Trails}
-import scalaz.Show
+import ch.fhnw.imvs.trails.{TrailsPrimitives, Trails}
+import com.tinkerpop.blueprints.Direction
+import com.tinkerpop.blueprints.Direction._
 import reflect.ClassTag
 
-trait BlueprintTrails extends Trails{
-  type Environment = Graph
-  type PathElement = Element
 
-  // Gremlin like operations
+trait BlueprintTrails extends TrailsPrimitives with Trails {
+  type Environment = com.tinkerpop.blueprints.Graph
+  type PathElement = com.tinkerpop.blueprints.Element
+  type Edge = com.tinkerpop.blueprints.Edge
+  type Vertex = com.tinkerpop.blueprints.Vertex
+
+  def V(): Traverser[Vertex] =
+    env => path => env.getVertices.toStream.map { node => (node :: path, node) }
+
+  def V(id: AnyRef): Traverser[Vertex] =
+    for {
+      env  <- getEnv
+      node = env.getVertex(id)
+      _    <- updatePath(p => node :: p) //TODO extend path or drop it on V()
+    } yield node
+
+  def E(): Traverser[Edge] =
+    env => path => env.getEdges.toStream.map { edge => (edge :: path, edge) }
+
+  def E(id: AnyRef): Traverser[Edge] =
+    for {
+      env  <- getEnv
+      edge = env.getEdge(id)
+      _    <- updatePath(p => edge :: p)
+    } yield edge
+
   def outE(edgeName: String): Traverser[Edge] =
     ontoE(edgeName, OUT)
 
@@ -32,35 +54,14 @@ trait BlueprintTrails extends Trails{
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     for {
-      path@((head: Edge) :: rest) <- getState
+      path@((head: Edge) :: rest) <- getPath
       v = head.getVertex(dir)
-      _ <- setState(v :: path)
+      _ <- setPath(v :: path)
     } yield v
 
-
-  def out(edgeName: String): Traverser[Vertex] =
-    outE(edgeName) ~> inV()
-
-  def in(edgeName: String): Traverser[Vertex] =
-    inE(edgeName) ~> outV()
-
-  def V(): Traverser[Vertex] =
-    env => path => env.getVertices.toStream.map { node => (node :: path, node) }
-
-  def V(id: AnyRef): Traverser[Vertex] =
+  def property[T:ClassTag](name: String): Traverser[T] = {
     for {
-      env  <- getEnv
-      node = env.getVertex(id)
-      _    <- updateState(p => node :: p) //TODO extend path or drop it on V()
-    } yield node
-
-  def E(): Traverser[Edge] =
-    env => path => env.getEdges.toStream.map { edge => (edge :: path, edge) }
-
-  def E(id: AnyRef): Traverser[Edge] =
-    for {
-      env  <- getEnv
-      edge = env.getEdge(id)
-      _    <- updateState(p => edge :: p)
-    } yield edge
+      head :: rest <- getPath
+    } yield head.getProperty(name).asInstanceOf[T]
+  }
 }

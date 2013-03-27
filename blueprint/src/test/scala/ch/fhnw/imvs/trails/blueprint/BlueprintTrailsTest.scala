@@ -58,9 +58,7 @@ class BlueprintTrailsTest extends FunSuite {
     val e0 = graph.addEdge("e0", v0, v0, "e")
 
     val expr0 = V ~ out("e").+
-
     val paths = Traverser.run(expr0, graph).map(_._1).take(1)
-
     assert(paths.size === 1)
     assert(paths contains List(v0, e0, v0))
   }
