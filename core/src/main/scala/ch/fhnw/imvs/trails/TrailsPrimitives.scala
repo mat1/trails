@@ -6,14 +6,15 @@ import reflect.ClassTag
 trait TrailsPrimitives { self: Trails =>
   type Edge <: PathElement
   type Vertex <: PathElement
+  type Id
 
   def V(): Traverser[Vertex]
 
-  def V(id: AnyRef): Traverser[Vertex]
+  def V(id: Id): Traverser[Vertex]
 
   def E(): Traverser[Edge]
 
-  def E(id: AnyRef): Traverser[Edge]
+  def E(id: Id): Traverser[Edge]
 
   def outE(edgeName: String): Traverser[Edge]
 

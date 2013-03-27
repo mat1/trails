@@ -8,26 +8,27 @@ import com.tinkerpop.blueprints.Direction._
 import reflect.ClassTag
 
 
-trait BlueprintTrails extends TrailsPrimitives with Trails {
+object BlueprintTrails extends TrailsPrimitives with Trails {
   type Environment = com.tinkerpop.blueprints.Graph
   type PathElement = com.tinkerpop.blueprints.Element
   type Edge = com.tinkerpop.blueprints.Edge
   type Vertex = com.tinkerpop.blueprints.Vertex
+  type Id = Any
 
   def V(): Traverser[Vertex] =
     env => path => env.getVertices.toStream.map { node => (node :: path, node) }
 
-  def V(id: AnyRef): Traverser[Vertex] =
+  def V(id: Id): Traverser[Vertex] =
     for {
       env  <- getEnv
       node = env.getVertex(id)
-      _    <- updatePath(p => node :: p) //TODO extend path or drop it on V()
+      _    <- updatePath(p => node :: p)
     } yield node
 
   def E(): Traverser[Edge] =
     env => path => env.getEdges.toStream.map { edge => (edge :: path, edge) }
 
-  def E(id: AnyRef): Traverser[Edge] =
+  def E(id: Id): Traverser[Edge] =
     for {
       env  <- getEnv
       edge = env.getEdge(id)
@@ -41,7 +42,7 @@ trait BlueprintTrails extends TrailsPrimitives with Trails {
     ontoE(edgeName, IN)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
-    e => path => path match {
+    env => path => path match {
       case (head: Vertex) :: rest =>
         head.getEdges(dir, edgeName).toStream.map { edge => ((edge :: path), edge) }
     }

@@ -1,12 +1,12 @@
 package ch.fhnw.imvs.trails.blueprint
 
 import org.scalatest.FunSuite
+import BlueprintTrails._
+
 import com.tinkerpop.blueprints.impls.tg.TinkerGraph
-import java.sql.ResultSet
 import com.tinkerpop.blueprints.Vertex
 
 class BlueprintTrailsTest extends FunSuite {
-  import ch.fhnw.imvs.trails.Blueprint._
 
 
   test("Simple pattern") {
