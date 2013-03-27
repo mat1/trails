@@ -12,9 +12,15 @@ trait TrailsPrimitives { self: Trails =>
 
   def V(id: Id): Traverser[Vertex]
 
+  def V(p: Vertex => Boolean): Traverser[Vertex] =
+    for { v <- V() if p(v) } yield v
+
   def E(): Traverser[Edge]
 
   def E(id: Id): Traverser[Edge]
+
+  def E(p: Edge => Boolean): Traverser[Edge] =
+    for { e <- E() if p(e) } yield e
 
   def outE(edgeName: String): Traverser[Edge]
 
