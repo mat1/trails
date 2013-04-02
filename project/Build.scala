@@ -16,7 +16,7 @@ object TrailsBuild extends Build with BuildSettings {
     name := "trails blueprint",
     version := "0.1",
     libraryDependencies ++= Seq(
-      "com.tinkerpop.blueprints" % "blueprints-core" % "2.1.0"
+      "com.tinkerpop.blueprints" % "blueprints-core" % "2.3.0"
     )
   )) dependsOn(core % "test->test;compile->compile")
 
