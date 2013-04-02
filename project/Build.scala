@@ -31,7 +31,7 @@ object TrailsBuild extends Build with BuildSettings {
 }
 
 trait BuildSettings {
-  final val SCALA_VERSION = "2.10.0"
+  final val SCALA_VERSION = "2.10.1"
 
   val standardSettings = Defaults.defaultSettings ++
     Seq(
