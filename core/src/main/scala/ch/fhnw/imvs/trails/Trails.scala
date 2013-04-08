@@ -13,24 +13,29 @@ trait Trails { self =>
 
   type Path = List[PathElement]
 
-  type Traverser[+A] = Environment => Path => Stream[(Path,A)]
+  final case class State(path: Path)
+  object State {
+    val Empty = State(Nil)
+  }
+
+  type Traverser[+A] = Environment => State => Stream[(State,A)]
 
   object Traverser {
     def run[A](tr: Traverser[A], env: Environment): Stream[(Path,A)] =
-      tr(env)(Nil).map { case (path,a) => (path.reverse,a) }
+      tr(env)(State.Empty).map { case (s,a) => (s.path.reverse, a) }
   }
 
   /** Provides some nice infix syntax. */
   final implicit class Syntax[A](t1: Traverser[A]) {
-    def ~[B](t2: Traverser[B]): Traverser[A~B] = sequence(t1, t2)
+    def ~[B](t2: Traverser[B]): Traverser[A~B] = self.sequence(t1, t2)
     def ~>[B](t2: Traverser[B]): Traverser[B] = self.map(sequence(t1, t2)){ case a ~ b => b }
     def <~[B](t2: Traverser[B]): Traverser[A] = self.map(sequence(t1, t2)){ case a ~ b => a }
-    def |(t2: Traverser[A]): Traverser[A] = choice(t1, t2)
-    def ? : Traverser[Option[A]] = optional(t1)
-    def * : Traverser[Stream[A]] = many(t1)
-    def + : Traverser[Stream[A]] = many1(t1)
+    def |(t2: => Traverser[A]): Traverser[A] = self.choice(t1, t2)
+    def ? : Traverser[Option[A]] = self.optional(t1)
+    def * : Traverser[Stream[A]] = self.many(t1)
+    def + : Traverser[Stream[A]] = self.many1(t1)
 
-    def ^^[B](f: A => B): Traverser[B] = map(f)
+    def ^^[B](f: A => B): Traverser[B] = self.map(t1)(f)
 
     /* for-comprehension sugar */
     def flatMap[B](f: A => Traverser[B]): Traverser[B] = self.flatMap(t1)(f)
@@ -38,10 +43,10 @@ trait Trails { self =>
     def filter(p: A => Boolean): Traverser[A] = self.filter(t1)(p)
 
     def withFilter(p: A => Boolean): TraverserWithFilter[A] = new TraverserWithFilter(t1, p)
-    final class TraverserWithFilter[+A](self: Traverser[A], p: A => Boolean) {
-      def map[B](f: A => B): Traverser[B] = self filter p map f
-      def flatMap[B](f: A => Traverser[B]): Traverser[B] = self filter p flatMap f
-      def withFilter(q: A => Boolean): TraverserWithFilter[A] = new TraverserWithFilter[A](self, x => p(x) && q(x))
+    final class TraverserWithFilter[+A](tr: Traverser[A], p: A => Boolean) {
+      def map[B](f: A => B): Traverser[B] = self.map(self.filter(tr)(p))(f)
+      def flatMap[B](f: A => Traverser[B]): Traverser[B] = self.flatMap(self.filter(tr)(p))(f)
+      def withFilter(q: A => Boolean): TraverserWithFilter[A] = new TraverserWithFilter[A](tr, x => p(x) && q(x))
     }
   }
 
@@ -50,30 +55,53 @@ trait Trails { self =>
   final case class <|[A](a: A) extends <|>[A,Nothing]
   final case class |>[B](a: B) extends <|>[Nothing,B]
 
-  final def flatMap[A,B](t: Traverser[A])(f: A => Traverser[B]): Traverser[B] =
-    env => path0 => t(env)(path0).flatMap { case (path1,a) => f(a)(env)(path1) }
-    //env => path0 => for { (path1,a) <- t(env)(path0); (path2,b) <- f(a)(env)(path1) } yield (path2, b)
+  /* Monadic API. */
+  final def flatMap[A,B](tr: Traverser[A])(f: A => Traverser[B]): Traverser[B] =
+    env => st0 => tr(env)(st0).flatMap { case (st1,a) => f(a)(env)(st1) }
 
+  /** Returns a traverser which returns its input as the output.
+    * @return a traverser which returns its input
+    */
+  final def success[A](a: A): Traverser[A] =
+    _ => st => Stream((st,a))
+
+  /* MonadPlus addons. */
+
+  /** Returns the 'parallel' composition of the two given traversers which follows both alternatives.
+    * @param either one of the traverser to follow
+    * @param or one of the traverser to follow
+    * @return the parallel composition of the two given traversers
+    */
+  final def choice[A](either: Traverser[A], or: => /* TODO DK: this is important */ Traverser[A]): Traverser[A] =
+    env => st => either(env)(st) #::: or(env)(st)
+
+  /** Returns a traverser which drops its input and returns a empty output.
+    * @return a traverser which drops its input
+    */
+  final def fail[A]: Traverser[A] =
+    _ => _ => Stream()
+
+  /* Environment access and State read and write */
+
+  final def getEnv: Traverser[Environment] =
+    env => st => Stream((st, env))
+
+  final def getState: Traverser[State] =
+    _ => st => Stream((st, st))
+
+  final def setState(st: State): Traverser[Unit] =
+    _ => _ => Stream((st, ()))
+
+
+  //////////////////////
   final def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
     flatMap(tr)(a => success(f(a)))
 
   final def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
     flatMap(tr)(a => if(f(a)) success(a) else fail)
 
-  final def getEnv: Traverser[Environment] =
-    env => path => Stream((path, env))
-
-  final def getPath: Traverser[Path] =
-    env => path => Stream((path, path))
-
-  final def setPath(state: Path): Traverser[Unit] =
-    env => _ => Stream((state, ()))
-
-  final def updatePath(f: Path => Path): Traverser[Unit] =
-    for {
-      s <- getPath
-      _ <- setPath(f(s))
-    } yield ()
+  final def updateState(f: State => State): Traverser[Unit] =
+    flatMap(getState)(st => setState(f(st)))
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
     * and then feeds the results into the snd traverser.
@@ -84,13 +112,6 @@ trait Trails { self =>
   final def sequence[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
     flatMap(fst)(a => map(snd)(b => new ~(a,b)))
 
-  /** Returns the 'parallel' composition of the two given traversers which follows both alternatives.
-    * @param either one of the traverser to follow
-    * @param or one of the traverser to follow
-    * @return the parallel composition of the two given traversers
-    */
-  final def choice[A](either: Traverser[A], or: => /* this is important */ Traverser[A]): Traverser[A] =
-    env => path => either(env)(path) #::: or(env)(path)
   /*
       env => s0 => {
       (map[A,A|B](either) { a => new <|(a) }(env)(s0)) #::: map[B,A|B](or) { a => new |>(a) }(env)(s0)
@@ -112,11 +133,11 @@ trait Trails { self =>
     choice(success(Stream()), many1(tr))
 
   /*
-    def internal_many[A](tr: Traverser[A]): Traverser[Stream[A]] =
-    map(choice(success(Stream()),internal_many1(tr))){
-      case <|(a) => a
-      case |>(a) => a
-    }
+    final def many[A](tr: Traverser[A]): Traverser[Stream[A]]=
+      map(choice(success(Stream()),internal_many1(tr))){
+        case <|(a) => a
+        case |>(a) => a
+      }
    */
 
   /** Returns a traverser which repeats the given traverser 1..* times.
@@ -124,22 +145,8 @@ trait Trails { self =>
     * @return a traverser which repeats the given traverser
     */
   final def many1[A](tr: Traverser[A]): Traverser[Stream[A]] =
-    for { a <- tr; as <- many(tr) } yield { a #:: as }
-
-
-
-
-  /** Returns a traverser which returns its input as the output.
-    * @return a traverser which returns its input
-    */
-  final def success[A](a: A): Traverser[A] =
-    _ => s0 => Stream((s0,a))
-
-  /** Returns a traverser which drops its input and returns a empty output.
-    * @return a traverser which drops its input
-    */
-  final def fail[A]: Traverser[A] =
-    _ => _ => Stream()
+    flatMap(tr)(a => map(many(tr))( as => a #:: as) )
+    //for { a <- tr; as <- many(tr) } yield { a #:: as }
 }
 
 

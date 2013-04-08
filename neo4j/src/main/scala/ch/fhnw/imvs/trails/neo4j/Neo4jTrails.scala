@@ -17,23 +17,23 @@ object Neo4jTrails extends TrailsPrimitives with Trails {
   type Id = Long
 
   def V(): Traverser[Vertex] =
-    env => path => GlobalGraphOperations.at(env).getAllNodes().toStream.map { node => (node :: path, node) }
+    env => s => GlobalGraphOperations.at(env).getAllNodes().toStream.map { node => (s.copy(path = node :: s.path), node) }
 
   def V(id: Id): Traverser[Vertex] =
     for {
       env  <- getEnv
       node = env.getNodeById(id)
-      _    <- updatePath(p => node :: p)
+      _    <- updateState(s => s.copy(path = node :: s.path))
     } yield node
 
   def E(): Traverser[Edge] =
-    env => path => GlobalGraphOperations.at(env).getAllRelationships().toStream.map { edge => (edge :: path, edge) }
+    env => s => GlobalGraphOperations.at(env).getAllRelationships().toStream.map { edge => (s.copy(path = edge :: s.path), edge) }
 
   def E(id: Id): Traverser[Edge] =
     for {
       env  <- getEnv
       edge = env.getRelationshipById(id)
-      _    <- updatePath(p => edge :: p)
+      _    <- updateState(s => s.copy(path = edge :: s.path))
     } yield edge
 
   def outE(edgeName: String): Traverser[Edge] =
@@ -43,10 +43,10 @@ object Neo4jTrails extends TrailsPrimitives with Trails {
     ontoE(edgeName, INCOMING)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
-    env => path => path match {
-      case (head: Vertex) :: rest =>
+    env => s => s match {
+      case State((head: Vertex) :: rest) =>
         val rels = head.getRelationships(DynamicRelationshipType.withName(edgeName), dir)
-        rels.toStream.map { edge => ((edge :: path), edge) }
+        rels.toStream.map { edge => (s.copy(path = edge :: s.path), edge) }
     }
 
   def outV(): Traverser[Vertex] =
@@ -57,14 +57,14 @@ object Neo4jTrails extends TrailsPrimitives with Trails {
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     for {
-      path@((head: Edge) :: rest) <- getPath
+      s@State((head: Edge) :: rest) <- getState
       v = if(dir == OUTGOING) head.getStartNode() else head.getEndNode()
-      _ <- setPath(v :: path)
+      _ <- setState(s.copy(path = v :: s.path))
     } yield v
 
   def property[T:ClassTag](name: String): Traverser[T] = {
     for {
-      head :: rest <- getPath
+      State(head :: rest) <- getState
     } yield head.getProperty(name).asInstanceOf[T]
   }
 }

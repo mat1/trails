@@ -16,23 +16,23 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
   type Id = Any
 
   def V(): Traverser[Vertex] =
-    env => path => env.getVertices.toStream.map { node => (node :: path, node) }
+    env => s => env.getVertices.toStream.map { node => (s.copy(path = node :: s.path), node) }
 
   def V(id: Id): Traverser[Vertex] =
     for {
       env  <- getEnv
       node = env.getVertex(id)
-      _    <- updatePath(p => node :: p)
+      _    <- updateState(s => s.copy(path = node :: s.path))
     } yield node
 
   def E(): Traverser[Edge] =
-    env => path => env.getEdges.toStream.map { edge => (edge :: path, edge) }
+    env => s => env.getEdges.toStream.map { edge => (s.copy(path = edge :: s.path), edge) }
 
   def E(id: Id): Traverser[Edge] =
     for {
       env  <- getEnv
       edge = env.getEdge(id)
-      _    <- updatePath(p => edge :: p)
+      _    <- updateState(s => s.copy(path = edge :: s.path))
     } yield edge
 
   def outE(edgeName: String): Traverser[Edge] =
@@ -42,9 +42,9 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
     ontoE(edgeName, IN)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
-    env => path => path match {
-      case (head: Vertex) :: rest =>
-        head.getEdges(dir, edgeName).toStream.map { edge => ((edge :: path), edge) }
+    env => s => s match {
+      case State((head: Vertex) :: rest) =>
+        head.getEdges(dir, edgeName).toStream.map { edge => (s.copy(path = (edge :: s.path)), edge) }
     }
 
   def outV(): Traverser[Vertex] =
@@ -55,14 +55,14 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     for {
-      path@((head: Edge) :: rest) <- getPath
+      s@State((head: Edge) :: rest) <- getState
       v = head.getVertex(dir)
-      _ <- setPath(v :: path)
+      _ <- setState(s.copy(path = v :: s.path))
     } yield v
 
   def property[T:ClassTag](name: String): Traverser[T] = {
     for {
-      head :: rest <- getPath
+      State(head :: rest) <- getState
     } yield head.getProperty(name).asInstanceOf[T]
   }
 }
