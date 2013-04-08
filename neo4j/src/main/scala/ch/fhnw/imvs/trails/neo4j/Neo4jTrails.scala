@@ -100,10 +100,10 @@ trait Neo4jTrails extends TrailsPrimitives with Trails {
     }
 
   def out(edgeName: String): Traverser =
-    product(outE(edgeName), inV())
+    sequence(outE(edgeName), inV())
 
   def in(edgeName: String): Traverser =
-    product(inE(edgeName), outV())
+    sequence(inE(edgeName), outV())
 
 
 

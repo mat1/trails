@@ -22,9 +22,9 @@ trait Trails { self =>
 
   /** Provides some nice infix syntax. */
   final implicit class Syntax[A](t1: Traverser[A]) {
-    def ~[B](t2: Traverser[B]): Traverser[A~B] = product(t1, t2)
-    def ~>[B](t2: Traverser[B]): Traverser[B] = self.map(product(t1, t2)){ case a ~ b => b }
-    def <~[B](t2: Traverser[B]): Traverser[A] = self.map(product(t1, t2)){ case a ~ b => a }
+    def ~[B](t2: Traverser[B]): Traverser[A~B] = sequence(t1, t2)
+    def ~>[B](t2: Traverser[B]): Traverser[B] = self.map(sequence(t1, t2)){ case a ~ b => b }
+    def <~[B](t2: Traverser[B]): Traverser[A] = self.map(sequence(t1, t2)){ case a ~ b => a }
     def |(t2: Traverser[A]): Traverser[A] = choice(t1, t2)
     def ? : Traverser[Option[A]] = optional(t1)
     def * : Traverser[Stream[A]] = many(t1)
@@ -55,10 +55,10 @@ trait Trails { self =>
     //env => path0 => for { (path1,a) <- t(env)(path0); (path2,b) <- f(a)(env)(path1) } yield (path2, b)
 
   final def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
-    env => path => tr(env)(path).map { case (s,a) => (s,f(a)) }
+    flatMap(tr)(a => success(f(a)))
 
   final def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
-    env => path => tr(env)(path).filter { case (s,a) => f(a) }
+    flatMap(tr)(a => if(f(a)) success(a) else fail)
 
   final def getEnv: Traverser[Environment] =
     env => path => Stream((path, env))
@@ -81,7 +81,7 @@ trait Trails { self =>
     * @param snd the subsequent traverser to apply
     * @return the sequential composition of fst and snd
     */
-  final def product[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
+  final def sequence[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
     flatMap(fst)(a => map(snd)(b => new ~(a,b)))
 
   /** Returns the 'parallel' composition of the two given traversers which follows both alternatives.
