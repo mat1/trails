@@ -12,6 +12,11 @@ object TrailsBuild extends Build with BuildSettings {
     )
   ))
 
+  lazy val parser = Project(id = "parser", base = file("parser"), settings = standardSettings ++ Seq(
+    name := "trails parser",
+    version := "0.1"
+  )) dependsOn(core % "test->test;compile->compile")
+
   lazy val blueprint = Project(id = "blueprint", base = file("blueprint"), settings = standardSettings ++ Seq(
     name := "trails blueprint",
     version := "0.1",

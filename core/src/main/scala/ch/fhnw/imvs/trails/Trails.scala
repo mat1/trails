@@ -150,3 +150,18 @@ trait Trails { self =>
 }
 
 
+/*
+
+sealed trait Twist[+A,+B,+S]
+case object Tzero extends Twist[Nothing,Nothing,Nothing]
+case class Twons[+A,+B,+S](a: A, tail: Twist[B,A,S]) extends Twist[A,B,S]
+
+object Twist extends App {
+  val a = Tzero
+  val b = Twons("nio",a)
+  val c = Twons(1,b)
+  val d = Twons("nj",c)
+}*/
+
+
+
