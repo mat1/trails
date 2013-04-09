@@ -1,6 +1,7 @@
 *.class
 *.log
-
+.DS_Store
+.history
 # sbt specific
 dist/*
 target/
