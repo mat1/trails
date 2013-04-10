@@ -50,7 +50,9 @@ trait Trails { self =>
     }
   }
 
-  final case class ~[+A,+B](a: A, b: B) // Product
+  final case class ~[+A,+B](a: A, b: B) {
+    override def toString: String = s"$a ~ $b"
+  } // Product
   sealed trait <|>[+A,+B] // Sum
   final case class <|[A](a: A) extends <|>[A,Nothing]
   final case class |>[B](a: B) extends <|>[Nothing,B]

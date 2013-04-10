@@ -13,12 +13,10 @@ object TrailsParser extends Trails {
       _ <- setState(State(chars.tail))
     } yield chars.head
 
-  def sat(p: Char => Boolean): Traverser[Char] =
-    filter(item)(p)
+  def sat(p: Char => Boolean): Traverser[Char] = filter(item)(p)
 
-  def char(c: Char): Traverser[Char] =
-    sat(_ == c)
-
-  def digit: Traverser[Char] =
-    sat(_.isDigit)
+  def char(c: Char): Traverser[Char] = sat(_ == c)
+  def digit: Traverser[Char] = sat(_.isDigit)
+  def letter: Traverser[Char] = sat(_.isLetter)
+  def alphanum: Traverser[Char] = digit | letter
 }
