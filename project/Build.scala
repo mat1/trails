@@ -2,7 +2,7 @@ import sbt._
 import Keys._
 
 object TrailsBuild extends Build with BuildSettings {
-  lazy val root = Project(id = "root", base = file("."), settings = standardSettings) aggregate(core, blueprint, neo4j)
+  lazy val root = Project(id = "root", base = file("."), settings = standardSettings) aggregate(core, blueprint, neo4j, parser)
 
   lazy val core = Project(id = "core", base = file("core"), settings = standardSettings ++ Seq(
     name := "trails core",
