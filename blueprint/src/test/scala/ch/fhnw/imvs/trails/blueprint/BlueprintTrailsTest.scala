@@ -69,7 +69,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val e0 = graph.addEdge("e0", v0, v0, "e")
 
-    val expr0 = V ~ out("e") ~ optional(out("f")) ~ optional(out("e"))
+    val expr0 = V ~ out("e") ~ opt(out("f")) ~ opt(out("e"))
 
     val paths = Traverser.run(expr0, graph).map(_._1).take(2)
 
@@ -84,13 +84,13 @@ class BlueprintTrailsTest extends FunSuite {
 
     val e0 = graph.addEdge("e0", v0, v0, "e")
 
-    val expr0 = V ~ out("e") ~> choice(out("f"),optional(out("e")))
+    val expr0 = V ~ out("e") ~> choice(out("f"),opt(out("e")))
 
     val pathsAndValues = Traverser.run(expr0, graph).take(2)
 
     assert(pathsAndValues.size === 2)
-    assert(pathsAndValues contains (List(v0, e0, v0), None))
-    assert(pathsAndValues contains (List(v0, e0, v0, e0, v0), Some(v0)))
+    assert(pathsAndValues contains ((List(v0, e0, v0), None)))
+    assert(pathsAndValues contains ((List(v0, e0, v0, e0, v0), Some(v0))))
   }
 
   test("many result") {
@@ -105,8 +105,8 @@ class BlueprintTrailsTest extends FunSuite {
     val pathsAndValues = Traverser.run(expr0, graph).take(2)
 
     assert(pathsAndValues.size === 2)
-    assert(pathsAndValues contains (List(v0),List()))
-    assert(pathsAndValues contains (List(v0,e0,v0),List(v0)))
+    assert(pathsAndValues contains ((List(v0),List())))
+    assert(pathsAndValues contains ((List(v0,e0,v0),List(v0))))
   }
 
   test("transitive closure") {

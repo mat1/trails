@@ -1,8 +1,5 @@
 package ch.fhnw.imvs.trails
 
-import reflect.ClassTag
-
-
 trait TrailsPrimitives { self: Trails =>
   type Edge <: PathElement
   type Vertex <: PathElement
@@ -36,5 +33,17 @@ trait TrailsPrimitives { self: Trails =>
   def in(edgeName: String): Traverser[Vertex] =
     inE(edgeName) ~> outV()
 
-  def property[T:ClassTag](name: String): Traverser[T]
+  def property[T](name: String): Traverser[T]
+
+  final def extendPath(p: PathElement): Traverser[Unit] =
+    updateState(s => s.copy(path = p :: s.path))
+
+  final def streamToTraverser[A](s: Stream[A]): Traverser[A] = {
+    // Requires custom lazyFoldRight because Stream#foldRight is not lazy
+    def lazyFoldRight[A, B](xs: Stream[A])(combine: (A, =>B) => B, base: B ): B =
+      if (xs.isEmpty) base
+      else combine(xs.head,  lazyFoldRight(xs.tail)(combine, base))
+
+    lazyFoldRight(s.map(success))(choice, fail)
+  }
 }

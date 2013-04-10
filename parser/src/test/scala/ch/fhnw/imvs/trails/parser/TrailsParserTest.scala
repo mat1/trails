@@ -8,7 +8,7 @@ class TrailsParserTest extends FunSuite {
     def applyItem(s: String): Stream[(State,Char)] =
       item(())(State(s.toList))
 
-    assert(applyItem("abc") contains (State("bc".toList), 'a'))
+    assert(applyItem("abc") contains ((State("bc".toList), 'a')))
     assert(applyItem("abc").size === 1)
     assert(applyItem("").isEmpty)
   }
@@ -26,5 +26,7 @@ class TrailsParserTest extends FunSuite {
 
     assert(applyEmail("daniel.kroeni@fhnw.ch").size === 1)
     assert(applyEmail("daniel.kroeni@fhnw.ch") contains ((State(Nil), Email("daniel.kroeni", "fhnw", "ch"))))
+
+    assert(applyEmail("daniel.kroeni@fhnw-ch").size === 0)
   }
 }

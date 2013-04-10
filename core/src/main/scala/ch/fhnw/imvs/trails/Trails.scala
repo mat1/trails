@@ -27,11 +27,11 @@ trait Trails { self =>
 
   /** Provides some nice infix syntax. */
   final implicit class Syntax[A](t1: Traverser[A]) {
-    def ~[B](t2: Traverser[B]): Traverser[A~B] = self.sequence(t1, t2)
-    def ~>[B](t2: Traverser[B]): Traverser[B] = self.map(sequence(t1, t2)){ case a ~ b => b }
-    def <~[B](t2: Traverser[B]): Traverser[A] = self.map(sequence(t1, t2)){ case a ~ b => a }
+    def ~[B](t2: Traverser[B]): Traverser[A~B] = self.seq(t1, t2)
+    def ~>[B](t2: Traverser[B]): Traverser[B] = self.map(seq(t1, t2)){ case a ~ b => b }
+    def <~[B](t2: Traverser[B]): Traverser[A] = self.map(seq(t1, t2)){ case a ~ b => a }
     def |(t2: => Traverser[A]): Traverser[A] = self.choice(t1, t2)
-    def ? : Traverser[Option[A]] = self.optional(t1)
+    def ? : Traverser[Option[A]] = self.opt(t1)
     def * : Traverser[Stream[A]] = self.many(t1)
     def + : Traverser[Stream[A]] = self.many1(t1)
 
@@ -74,7 +74,7 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  final def choice[A](either: Traverser[A], or: => /* TODO DK: this is important */ Traverser[A]): Traverser[A] =
+  final def choice[A](either: Traverser[A], or: =>/*   TODO DK: this is important */ Traverser[A]): Traverser[A] =
     env => st => either(env)(st) #::: or(env)(st)
 
   /** Returns a traverser which drops its input and returns a empty output.
@@ -84,7 +84,6 @@ trait Trails { self =>
     _ => _ => Stream()
 
   /* Environment access and State read and write */
-
   final def getEnv: Traverser[Environment] =
     env => st => Stream((st, env))
 
@@ -94,16 +93,18 @@ trait Trails { self =>
   final def setState(st: State): Traverser[Unit] =
     _ => _ => Stream((st, ()))
 
+  //
+  final def updateState(f: State => State): Traverser[Unit] =
+    flatMap(getState)(st => setState(f(st)))
 
-  //////////////////////
+  // Every monad is a functor
   final def map[A,B](tr: Traverser[A])(f: A => B): Traverser[B] =
     flatMap(tr)(a => success(f(a)))
 
+  // filter can be implemented for any monad plus instance
   final def filter[A](tr: Traverser[A])(f: A => Boolean): Traverser[A] =
     flatMap(tr)(a => if(f(a)) success(a) else fail)
 
-  final def updateState(f: State => State): Traverser[Unit] =
-    flatMap(getState)(st => setState(f(st)))
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
     * and then feeds the results into the snd traverser.
@@ -111,7 +112,7 @@ trait Trails { self =>
     * @param snd the subsequent traverser to apply
     * @return the sequential composition of fst and snd
     */
-  final def sequence[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
+  final def seq[A,B](fst: Traverser[A], snd: Traverser[B]): Traverser[A~B] =
     flatMap(fst)(a => map(snd)(b => new ~(a,b)))
 
   /*
@@ -124,7 +125,7 @@ trait Trails { self =>
     * @param tr the traverser to follow optionally
     * @return a traverser which optionally follows the given traverser
     */
-  final def optional[A](tr: Traverser[A]): Traverser[Option[A]] =
+  final def opt[A](tr: Traverser[A]): Traverser[Option[A]] =
     choice(map(success(()))(_ => None), map(tr)(Some[A](_)))
 
   /** Returns a traverser which repeats the given traverser 0..* times.
