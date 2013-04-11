@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.neo4j
-
+/*
 import org.scalatest.FunSuite
 import ch.fhnw.imvs.trails.neo4j.Neo4jTrails._
 import org.neo4j.test.TestGraphDatabaseFactory
@@ -80,3 +80,4 @@ class Neo4jTrailsTest extends FunSuite {
   }
 }
 
+*/

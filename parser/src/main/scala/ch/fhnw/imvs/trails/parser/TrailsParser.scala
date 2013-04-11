@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.parser
-
+/*
 import ch.fhnw.imvs.trails.Trails
 
 
@@ -8,10 +8,14 @@ object TrailsParser extends Trails {
   type PathElement = Char
 
   def item: Traverser[Char] =
-    for {
-      State(chars) <- getState if chars.nonEmpty
-      _ <- setState(State(chars.tail))
-    } yield chars.head
+    env => state => state match {
+      case State(c :: cs, cy) => Stream((State(cs,cy),c))
+      case State(Nil, cy) => Stream()
+    }
+   /* for {
+      s <- getState if s.path.nonEmpty
+      _ <- setState(s.copy(path = s.path.tail))
+    } yield s.path.head */
 
   def sat(p: Char => Boolean): Traverser[Char] = filter(item)(p)
 
@@ -20,3 +24,5 @@ object TrailsParser extends Trails {
   def letter: Traverser[Char] = sat(_.isLetter)
   def alphanum: Traverser[Char] = digit | letter
 }
+
+*/

@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.neo4j
-
+/*
 import org.neo4j.graphdb.Direction._
 import org.neo4j.tooling.GlobalGraphOperations
 import ch.fhnw.imvs.trails.{TrailsPrimitives, Trails}
@@ -51,7 +51,7 @@ object Neo4jTrails extends TrailsPrimitives with Trails {
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Edge] =
     for {
-      State((head: Vertex) :: rest) <- getState
+      State((head: Vertex) :: rest, _) <- getState
       edges = head.getRelationships(DynamicRelationshipType.withName(edgeName), dir)
       edge <- streamToTraverser(edges.toStream)
       _ <- extendPath(edge)
@@ -65,14 +65,15 @@ object Neo4jTrails extends TrailsPrimitives with Trails {
 
   private def ontoV(dir: Direction): Traverser[Vertex] =
     for {
-      State((head: Edge) :: rest) <- getState
+      State((head: Edge) :: rest, _) <- getState
       v = if(dir == OUTGOING) head.getStartNode() else head.getEndNode()
       _ <- extendPath(v)
     } yield v
 
   def property[T](name: String): Traverser[T] = {
     for {
-      State(head :: rest) <- getState
+      State(head :: rest, _) <- getState
     } yield head.getProperty(name).asInstanceOf[T]
   }
 }
+*/

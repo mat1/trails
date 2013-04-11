@@ -5,40 +5,44 @@ trait TrailsPrimitives { self: Trails =>
   type Vertex <: PathElement
   type Id
 
-  def V(): Traverser[Vertex]
+  def V[A](): Traverser[A,Vertex,Vertex]
 
-  def V(id: Id): Traverser[Vertex]
+  def V[A](id: Id): Traverser[A,Vertex,Vertex]
 
-  def V(p: Vertex => Boolean): Traverser[Vertex] =
-    for { v <- V() if p(v) } yield v
+  def V[A](p: Vertex => Boolean): Traverser[A,Vertex,Vertex] =
+    for { v <- V[A]() if p(v) } yield v
 
-  def E(): Traverser[Edge]
+  def E[A](): Traverser[A,Edge,Edge]
 
-  def E(id: Id): Traverser[Edge]
+  def E[A](id: Id): Traverser[A,Edge,Edge]
 
-  def E(p: Edge => Boolean): Traverser[Edge] =
-    for { e <- E() if p(e) } yield e
+  def E[A](p: Edge => Boolean): Traverser[A,Edge,Edge] =
+    for { e <- E[A]() if p(e) } yield e
 
-  def outE(edgeName: String): Traverser[Edge]
+  def outE(edgeName: String): Traverser[Vertex,Edge,Edge]
 
-  def inE(edgeName: String): Traverser[Edge]
+  def inE(edgeName: String): Traverser[Vertex,Edge,Edge]
 
-  def outV(): Traverser[Vertex]
+  def outV(): Traverser[Edge,Vertex,Vertex]
 
-  def inV(): Traverser[Vertex]
+  def inV(): Traverser[Edge,Vertex,Vertex]
 
-  def out(edgeName: String): Traverser[Vertex] =
+  def out(edgeName: String): Traverser[Vertex,Vertex,Vertex] =
     outE(edgeName) ~> inV()
 
-  def in(edgeName: String): Traverser[Vertex] =
+  def in(edgeName: String): Traverser[Vertex,Vertex,Vertex] =
     inE(edgeName) ~> outV()
 
-  def property[T](name: String): Traverser[T]
+  def property[A,T](name: String): Traverser[A,A,T]
 
-  final def extendPath(p: PathElement): Traverser[Unit] =
+  def has[A,T](name: String, value: T): Traverser[A,A,T] =
+    property[A,T](name).filter(_ == value)
+
+
+  final def extendPath[B,E <: PathElement](p: E): Traverser[B,E,Unit] =
     updateState(s => s.copy(path = p :: s.path))
 
-  final def streamToTraverser[A](s: Stream[A]): Traverser[A] = {
+  final def streamToTraverser[B,A](s: Stream[A]): Traverser[B,B,A] = {
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
     def lazyFoldRight[A, B](xs: Stream[A])(combine: (A, =>B) => B, base: B ): B =
       if (xs.isEmpty) base
