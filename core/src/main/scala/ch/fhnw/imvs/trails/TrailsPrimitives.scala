@@ -44,10 +44,10 @@ trait TrailsPrimitives { self: Trails =>
 
   final def streamToTraverser[B,A](s: Stream[A]): Traverser[B,B,A] = {
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
-    def lazyFoldRight[A, B](xs: Stream[A])(combine: (A, =>B) => B, base: B ): B =
+    def lazyFoldRight[F, G](xs: Stream[F])(combine: (F, =>G) => G, base: G ): G =
       if (xs.isEmpty) base
-      else combine(xs.head,  lazyFoldRight(xs.tail)(combine, base))
+      else combine(xs.head, lazyFoldRight(xs.tail)(combine, base))
 
-    lazyFoldRight(s.map(success))(choice, fail)
+    lazyFoldRight[Traverser[B,B,A],Traverser[B,B,A]](s.map(success[B,A]))(choice[B,B,A], fail)
   }
 }
