@@ -2,7 +2,7 @@ package ch.fhnw.imvs.trails.parser
 
 import ch.fhnw.imvs.trails.Trails
 
-
+/*
 object TrailsParser extends Trails {
   type Environment = Unit
   type PathElement = Char
@@ -27,4 +27,4 @@ object TrailsParser extends Trails {
   def alphanum: Parser[Char] = digit | letter
 }
 
-
+*/

@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.parser
-
+/*
 import org.scalatest.FunSuite
 import TrailsParser._
 
@@ -31,3 +31,4 @@ class TrailsParserTest extends FunSuite {
     assert(applyEmail("daniel.kroeni@fhnw-ch").size === 0)
   }
 }
+*/

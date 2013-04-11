@@ -14,24 +14,21 @@ trait Trails { self =>
 
   type Path = List[PathElement]
 
-  final case class State(path: Path)
-  object State {
-    val Empty = State(Nil)
-  }
+  final case class State[+Head <: PathElement](path: Path)
 
-  trait Traverser[-I,+O,+A] extends (Environment => State => Stream[(State,A)]) {
+  trait Traverser[-I,+O,+A] extends (Environment => I => Stream[(O,A)]) {
     def flatMap[P,B](f: A => Traverser[O,P,B]): Traverser[I,P,B] = self.flatMap(this)(f)
     def map[B](f: A => B): Traverser[I,O,B] = self.map(this)(f)
     def filter(p: A => Boolean): Traverser[I,O,A] = self.filter(this)(p)
   }
 
   object Traverser {
-    def apply[I,O,A](f: Environment => State => Stream[(State,A)]): Traverser[I,O,A] = new Traverser[I,O,A] {
-      def apply(e: Environment): State => Stream[(State,A)] = f(e)
+    def apply[I,O,A](f: Environment => I => Stream[(O,A)]): Traverser[I,O,A] = new Traverser[I,O,A] {
+      def apply(e: Environment): I => Stream[(O,A)] = f(e)
     }
 
-    def run[I,O,A](tr: Traverser[I,O,A], env: Environment): Stream[(Path,A)] =
-      tr(env)(State.Empty).map { case (s,a) => (s.path.reverse, a) }
+    def run[E <: PathElement,A](tr: Traverser[State[Nothing],State[E],A], env: Environment): Stream[(Path,A)] =
+      tr(env)(State[Nothing](Nil)).map { case (s,a) => (s.path.reverse, a) }
   }
 
   /** Provides some nice infix syntax. */
@@ -64,7 +61,7 @@ trait Trails { self =>
   /** Returns a traverser which returns its input as the output.
     * @return a traverser which returns its input
     */
-  final def success[X,A](a: A): Traverser[X,X,A] =
+  final def success[S,A](a: A): Traverser[S,S,A] =
     Traverser(_ => st => Stream((st,a)))
 
   /* MonadPlus addons. */
@@ -87,14 +84,14 @@ trait Trails { self =>
   final def getEnv[X]: Traverser[X,X,Environment] =
     Traverser(env => st => Stream((st, env)))
 
-  final def getState[X]: Traverser[X,X,State] =
+  final def getState[S]: Traverser[S,S,S] =
     Traverser(_ => st => Stream((st, st)))
 
-  final def setState[I,O](st: State): Traverser[I,O,Unit] =
+  final def setState[I,O](st: O): Traverser[I,O,Unit] =
     Traverser(_ => _ => Stream((st, ())))
 
   //
-  final def updateState[I,O](f: State => State): Traverser[I,O,Unit] =
+  final def updateState[I,O](f: I => O): Traverser[I,O,Unit] =
     Traverser(flatMap(getState[I])(st => setState[I,O](f(st))))
 
   // Every monad is a functor
