@@ -1,23 +1,33 @@
 package ch.fhnw.imvs.trails.parser
-/*
+
 import org.scalatest.FunSuite
 import TrailsParser._
-// test-only ch.fhnw.imvs.trails.parser.TrailsParserTest
+
 class TrailsParserTest extends FunSuite {
   test("item") {
     def applyItem(s: String): Stream[(State,Char)] =
-      item(())(State(s.toList, None))
+      item(())(State(s.toList))
 
-    assert(applyItem("abc") contains ((State("bc".toList, None), 'a')))
+    assert(applyItem("abc") contains ((State("bc".toList), 'a')))
     assert(applyItem("abc").size === 1)
     assert(applyItem("").isEmpty)
   }
 
-  test("cycles?") {
-    val g = item.+
+  test("email case") {
+    case class Email(name: String, domain: String, topLevel: String)
 
-    println(g(())(State("ab".toList, None)).map(p => (p._1, p._2.toList)).toList)
+    val domainChars = alphanum | char('_') | char('-')
+    val nameChars = domainChars | char('.')
+    val name = nameChars.+ ^^ (_.mkString)
+    val email = name ~ char('@') ~ domainChars.+ ~ char('.') ~ letter.+ ^^ { case n ~ _ ~ domain ~ _ ~ top =>
+      Email(n, domain.mkString, top.mkString)
+    }
 
+    def applyEmail(s: String): Stream[(State,Email)] = email(())(State(s.toList)).filter{ case (State(rest),_) => rest.isEmpty}
+
+    assert(applyEmail("daniel.kroeni@fhnw.ch").size === 1)
+    assert(applyEmail("daniel.kroeni@fhnw.ch") contains ((State(Nil), Email("daniel.kroeni", "fhnw", "ch"))))
+
+    assert(applyEmail("daniel.kroeni@fhnw-ch").size === 0)
   }
 }
-*/

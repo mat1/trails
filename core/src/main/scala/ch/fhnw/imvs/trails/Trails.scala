@@ -19,35 +19,35 @@ trait Trails { self =>
     val Empty = State(Nil)
   }
 
-  trait Traverser[-In,+Out,+A] extends (Environment => State => Stream[(State,A)])
+  trait Traverser[-I,+O,+A] extends (Environment => State => Stream[(State,A)]) {
+    def flatMap[P,B](f: A => Traverser[O,P,B]): Traverser[I,P,B] = self.flatMap(this)(f)
+    def map[B](f: A => B): Traverser[I,O,B] = self.map(this)(f)
+    def filter(p: A => Boolean): Traverser[I,O,A] = self.filter(this)(p)
+  }
 
   object Traverser {
-    def apply[In,Out,A](f: Environment => State => Stream[(State,A)]): Traverser[In,Out,A] = new Traverser[In,Out,A] {
+    def apply[I,O,A](f: Environment => State => Stream[(State,A)]): Traverser[I,O,A] = new Traverser[I,O,A] {
       def apply(e: Environment): State => Stream[(State,A)] = f(e)
     }
-    def run[IN,OUT,A](tr: Traverser[IN,OUT,A], env: Environment): Stream[(Path,A)] =
+
+    def run[I,O,A](tr: Traverser[I,O,A], env: Environment): Stream[(Path,A)] =
       tr(env)(State.Empty).map { case (s,a) => (s.path.reverse, a) }
   }
 
   /** Provides some nice infix syntax. */
-  final implicit class Syntax[IN1,OUT1,A](t1: Traverser[IN1,OUT1,A]) {
-    def ~[OUT2,B](t2: Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,A~B] = self.seq(t1, t2)
-    def ~>[OUT2,B](t2: Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,B] = self.map(seq(t1, t2)){ case a ~ b => b }
-    def <~[OUT2,B](t2: Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,A] = self.map(seq(t1, t2)){ case a ~ b => a }
-    def |(t2: => Traverser[IN1,OUT1,A]): Traverser[IN1,OUT1,A] = self.choice(t1, t2)
+  final implicit class Syntax[I,O,A](t1: Traverser[I,O,A]) {
+    def ~[P,B](t2: Traverser[O,P,B]): Traverser[I,P,A~B] = self.seq(t1, t2)
+    def ~>[P,B](t2: Traverser[O,P,B]): Traverser[I,P,B] = self.map(seq(t1, t2)){ case a ~ b => b }
+    def <~[P,B](t2: Traverser[O,P,B]): Traverser[I,P,A] = self.map(seq(t1, t2)){ case a ~ b => a }
+    def |(t2: => Traverser[I,O,A]): Traverser[I,O,A] = self.choice(t1, t2)
 
-    def ^^[B](f: A => B): Traverser[IN1,OUT1,B] = self.map(t1)(f)
-
-    /* for-comprehension sugar */
-    def flatMap[OUT2,B](f: A => Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,B] = self.flatMap(t1)(f)
-    def map[B](f: A => B): Traverser[IN1,OUT1,B] = self.map(t1)(f)
-    def filter(p: A => Boolean): Traverser[IN1,OUT1,A] = self.filter(t1)(p)
+    def ^^[B](f: A => B): Traverser[I,O,B] = self.map(t1)(f)
   }
 
-  final implicit class Syntax2[IN1,A](t1: Traverser[IN1,IN1,A]) {
-    def ? : Traverser[IN1,IN1,Option[A]] = self.opt(t1)
-    def * : Traverser[IN1,IN1,Stream[A]] = self.many(t1)
-    def + : Traverser[IN1,IN1,Stream[A]] = self.many1(t1)
+  final implicit class Syntax2[X,A](t1: Traverser[X,X,A]) {
+    def ? : Traverser[X,X,Option[A]] = self.opt(t1)
+    def * : Traverser[X,X,Stream[A]] = self.many(t1)
+    def + : Traverser[X,X,Stream[A]] = self.many1(t1)
   }
 
   final case class ~[+A,+B](a: A, b: B) {
