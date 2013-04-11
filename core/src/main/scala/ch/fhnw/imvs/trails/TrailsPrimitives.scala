@@ -5,19 +5,19 @@ trait TrailsPrimitives { self: Trails =>
   type Vertex <: PathElement
   type Id
 
-  def V[A](): Traverser[A,Vertex,Vertex]
+  def V[X](): Traverser[X,Vertex,Vertex]
 
-  def V[A](id: Id): Traverser[A,Vertex,Vertex]
+  def V[X](id: Id): Traverser[X,Vertex,Vertex]
 
-  def V[A](p: Vertex => Boolean): Traverser[A,Vertex,Vertex] =
-    for { v <- V[A]() if p(v) } yield v
+  def V[X](p: Vertex => Boolean): Traverser[X,Vertex,Vertex] =
+    for { v <- V[X]() if p(v) } yield v
 
-  def E[A](): Traverser[A,Edge,Edge]
+  def E[X](): Traverser[X,Edge,Edge]
 
-  def E[A](id: Id): Traverser[A,Edge,Edge]
+  def E[X](id: Id): Traverser[X,Edge,Edge]
 
-  def E[A](p: Edge => Boolean): Traverser[A,Edge,Edge] =
-    for { e <- E[A]() if p(e) } yield e
+  def E[X](p: Edge => Boolean): Traverser[X,Edge,Edge] =
+    for { e <- E[X]() if p(e) } yield e
 
   def outE(edgeName: String): Traverser[Vertex,Edge,Edge]
 
@@ -33,21 +33,21 @@ trait TrailsPrimitives { self: Trails =>
   def in(edgeName: String): Traverser[Vertex,Vertex,Vertex] =
     inE(edgeName) ~> outV()
 
-  def property[A,T](name: String): Traverser[A,A,T]
+  def property[X,A](name: String): Traverser[X,X,A]
 
-  def has[A,T](name: String, value: T): Traverser[A,A,T] =
-    property[A,T](name).filter(_ == value)
+  def has[X,A](name: String, value: A): Traverser[X,X,A] =
+    property[X,A](name).filter(_ == value)
 
-
-  final def extendPath[B,E <: PathElement](p: E): Traverser[B,E,Unit] =
+  final def extendPath[X,E <: PathElement](p: E): Traverser[X,E,Unit] =
     updateState(s => s.copy(path = p :: s.path))
 
-  final def streamToTraverser[B,A](s: Stream[A]): Traverser[B,B,A] = {
+  final def streamToTraverser[X,A](s: Stream[A]): Traverser[X,X,A] = {
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
-    def lazyFoldRight[F, G](xs: Stream[F])(combine: (F, =>G) => G, base: G ): G =
+    type TXXA = Traverser[X,X,A]
+    def lazyFoldRight(xs: Stream[TXXA])(combine: (TXXA, =>TXXA) => TXXA, base: TXXA): TXXA =
       if (xs.isEmpty) base
       else combine(xs.head, lazyFoldRight(xs.tail)(combine, base))
 
-    lazyFoldRight[Traverser[B,B,A],Traverser[B,B,A]](s.map(success[B,A]))(choice[B,B,A], fail)
+    lazyFoldRight(s.map(success[X,A]))(choice[X,X,A], fail)
   }
 }

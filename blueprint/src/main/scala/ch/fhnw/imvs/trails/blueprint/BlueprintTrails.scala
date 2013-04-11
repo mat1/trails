@@ -12,34 +12,33 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
   type Vertex = com.tinkerpop.blueprints.Vertex
   type Id = Any
 
-  def V[A](): Traverser[A,Vertex,Vertex] =
+  def V[X](): Traverser[X,Vertex,Vertex] =
     Traverser(for {
       env <- getEnv
-      node <- streamToTraverser[A,Vertex](env.getVertices.toStream)
-      _ <- extendPath[A,Vertex](node)
+      node <- streamToTraverser[X,Vertex](env.getVertices.toStream)
+      _ <- extendPath[X,Vertex](node)
     } yield node)
 
-
-  def V[A](id: Id): Traverser[A,Vertex,Vertex] =
+  def V[X](id: Id): Traverser[X,Vertex,Vertex] =
     Traverser(for {
-      env  <- getEnv[A]
+      env  <- getEnv[X]
       node = env.getVertex(id)
-      _    <- extendPath[A,Vertex](node)
+      _    <- extendPath[X,Vertex](node)
     } yield node)
 
-  def E[A](): Traverser[A,Edge,Edge] =
+  def E[X](): Traverser[X,Edge,Edge] =
     Traverser(for {
       env  <- getEnv
-      edge <- streamToTraverser[A,Edge](env.getEdges.toStream)
-      _    <- extendPath[A,Edge](edge)
+      edge <- streamToTraverser[X,Edge](env.getEdges.toStream)
+      _    <- extendPath[X,Edge](edge)
     } yield edge)
 
 
-  def E[A](id: Id): Traverser[A,Edge,Edge] =
+  def E[X](id: Id): Traverser[X,Edge,Edge] =
     Traverser(for {
-      env  <- getEnv[A]
+      env  <- getEnv[X]
       edge = env.getEdge(id)
-      _    <- extendPath[A,Edge](edge)
+      _    <- extendPath[X,Edge](edge)
     } yield edge)
 
   def outE(edgeName: String): Traverser[Vertex,Edge,Edge] =
@@ -50,7 +49,7 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[Vertex,Edge,Edge] =
     Traverser(for {
-      State((head: Vertex) :: rest, _) <- getState[Vertex]
+      State((head: Vertex) :: rest) <- getState[Vertex]
       edge <- streamToTraverser[Vertex,Edge](head.getEdges(dir, edgeName).toStream)
       _ <- extendPath[Vertex,Edge](edge)
     } yield edge)
@@ -63,13 +62,13 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
 
   private def ontoV(dir: Direction): Traverser[Edge,Vertex,Vertex] =
     Traverser[Edge,Vertex,Vertex](for {
-      s@State((head: Edge) :: rest, _) <- getState[Edge]
+      State((head: Edge) :: rest) <- getState[Edge]
       vertex = head.getVertex(dir)
       _ <- extendPath[Edge,Vertex](vertex)
     } yield vertex)
 
-  def property[A,T](name: String): Traverser[A,A,T] =
+  def property[X,A](name: String): Traverser[X,X,A] =
     Traverser(for {
-      State(head :: rest, _) <- getState
-    } yield head.getProperty(name).asInstanceOf[T])
+      State(head :: rest) <- getState
+    } yield head.getProperty(name).asInstanceOf[A])
 }

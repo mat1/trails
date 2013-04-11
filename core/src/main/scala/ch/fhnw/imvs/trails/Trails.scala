@@ -14,9 +14,9 @@ trait Trails { self =>
 
   type Path = List[PathElement]
 
-  final case class State(path: Path, cycles: Option[Set[Path]])
+  final case class State(path: Path)
   object State {
-    val Empty = State(Nil,None)
+    val Empty = State(Nil)
   }
 
   trait Traverser[-In,+Out,+A] extends (Environment => State => Stream[(State,A)])
@@ -58,7 +58,7 @@ trait Trails { self =>
   final case class |>[B](a: B) extends <|>[Nothing,B]
 
   /* Monadic API. */
-  final def flatMap[IN1,OUT1,A,OUT2,B](tr: Traverser[IN1,OUT1,A])(f: A => Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,B] =
+  final def flatMap[I,M,O,A,B](tr: Traverser[I,M,A])(f: A => Traverser[M,O,B]): Traverser[I,O,B] =
     Traverser(env => st0 => tr(env)(st0).flatMap { case (st1,a) => f(a)(env)(st1) })
 
   /** Returns a traverser which returns its input as the output.
@@ -74,13 +74,13 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  final def choice[IN,OUT,A](either: Traverser[IN,OUT,A], or: => Traverser[IN,OUT,A]): Traverser[IN,OUT,A] =
+  final def choice[I,O,A](either: Traverser[I,O,A], or: => Traverser[I,O,A]): Traverser[I,O,A] =
     Traverser(env => st => either(env)(st) #::: or(env)(st))
 
   /** Returns a traverser which drops its input and returns a empty output.
     * @return a traverser which drops its input
     */
-  final def fail[IN,OUT,A]: Traverser[IN,OUT,A] =
+  final def fail[X,A]: Traverser[X,X,A] =
     Traverser(_ => _ => Stream())
 
   /* Environment access and State read and write */
@@ -90,20 +90,20 @@ trait Trails { self =>
   final def getState[X]: Traverser[X,X,State] =
     Traverser(_ => st => Stream((st, st)))
 
-  final def setState[IN,OUT](st: State): Traverser[IN,OUT,Unit] =
+  final def setState[I,O](st: State): Traverser[I,O,Unit] =
     Traverser(_ => _ => Stream((st, ())))
 
   //
-  final def updateState[IN,OUT](f: State => State): Traverser[IN,OUT,Unit] =
-    Traverser(flatMap(getState[IN])(st => setState[IN,OUT](f(st))))
+  final def updateState[I,O](f: State => State): Traverser[I,O,Unit] =
+    Traverser(flatMap(getState[I])(st => setState[I,O](f(st))))
 
   // Every monad is a functor
-  final def map[IN,OUT,A,B](tr: Traverser[IN,OUT,A])(f: A => B): Traverser[IN,OUT,B] =
-    Traverser(flatMap(tr)(a => success[OUT,B](f(a))))
+  final def map[I,O,A,B](tr: Traverser[I,O,A])(f: A => B): Traverser[I,O,B] =
+    Traverser(flatMap(tr)(a => success[O,B](f(a))))
 
   // filter can be implemented for any monad plus instance
-  final def filter[IN,OUT,A](tr: Traverser[IN,OUT,A])(f: A => Boolean): Traverser[IN,OUT,A] =
-    Traverser(flatMap(tr)(a => if(f(a)) success[OUT,A](a) else fail[OUT,OUT,A]))
+  final def filter[I,O,A](tr: Traverser[I,O,A])(f: A => Boolean): Traverser[I,O,A] =
+    Traverser(flatMap(tr)(a => if(f(a)) success[O,A](a) else fail[O,A]))
 
 
   /** Returns the sequential composition of fst and snd which first follows the fst traverser
@@ -112,7 +112,7 @@ trait Trails { self =>
     * @param snd the subsequent traverser to apply
     * @return the sequential composition of fst and snd
     */
-  final def seq[IN1,OUT1,A,OUT2,B](fst: Traverser[IN1,OUT1,A], snd: Traverser[OUT1,OUT2,B]): Traverser[IN1,OUT2,A~B] =
+  final def seq[I,M,O,A,B](fst: Traverser[I,M,A], snd: Traverser[M,O,B]): Traverser[I,O,A~B] =
     Traverser(flatMap(fst)(a => map(snd)(b => new ~(a,b))))
 
   /*
@@ -125,15 +125,15 @@ trait Trails { self =>
     * @param tr the traverser to follow optionally
     * @return a traverser which optionally follows the given traverser
     */
-  final def opt[IN,A](tr: Traverser[IN,IN,A]): Traverser[IN,IN,Option[A]] =
-    Traverser(choice(map(success[IN,Unit](()))(_ => None), map(tr)(Some[A](_))))
+  final def opt[X,A](tr: Traverser[X,X,A]): Traverser[X,X,Option[A]] =
+    Traverser(choice(map(success[X,Unit](()))(_ => None), map(tr)(Some[A](_))))
 
   /** Returns a traverser which repeats the given traverser 0..* times.
     * @param tr the traverser to be repeated
     * @return a traverser which repeats the given traverserN
     */
-  final def many[IN,A](tr: Traverser[IN,IN,A]): Traverser[IN,IN,Stream[A]] =
-    Traverser(choice(success[IN,Stream[Nothing]](Stream()),many1(tr)))
+  final def many[X,A](tr: Traverser[X,X,A]): Traverser[X,X,Stream[A]] =
+    Traverser(choice(success[X,Stream[Nothing]](Stream()),many1(tr)))
 
   /*
     final def many[A](tr: Traverser[A]): Traverser[Stream[A]]=
@@ -147,7 +147,7 @@ trait Trails { self =>
     * @param tr the traverser to be repeated
     * @return a traverser which repeats the given traverser
     */
-  final def many1[IN,A](tr: Traverser[IN,IN,A]): Traverser[IN,IN,Stream[A]] =
+  final def many1[X,A](tr: Traverser[X,X,A]): Traverser[X,X,Stream[A]] =
     Traverser(flatMap(tr)(a => map(many(tr))( as => a #:: as)))
 
 }
