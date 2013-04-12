@@ -13,33 +13,33 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
   type Id = Any
 
   def V(): Traverser[State[Nothing],State[Vertex],Vertex] =
-    Traverser(for {
+    for {
       env <- getEnv
       node <- streamToTraverser[State[Nothing],Vertex](env.getVertices.toStream)
       _ <- extendPath[Nothing,Vertex](node)
-    } yield node)
+    } yield node
 
   def V(id: Id): Traverser[State[Nothing],State[Vertex],Vertex] =
-    Traverser(for {
+    for {
       env  <- getEnv
       node = env.getVertex(id)
       _    <- extendPath[Nothing,Vertex](node)
-    } yield node)
+    } yield node
 
   def E(): Traverser[State[Nothing],State[Edge],Edge] =
-    Traverser(for {
+    for {
       env  <- getEnv
       edge <- streamToTraverser[State[Nothing],Edge](env.getEdges.toStream)
       _    <- extendPath[Nothing,Edge](edge)
-    } yield edge)
+    } yield edge
 
 
   def E(id: Id): Traverser[State[Nothing],State[Edge],Edge] =
-    Traverser(for {
+    for {
       env  <- getEnv
       edge = env.getEdge(id)
       _    <- extendPath[Nothing,Edge](edge)
-    } yield edge)
+    } yield edge
 
   def outE(edgeName: String): Traverser[State[Vertex],State[Edge],Edge] =
     ontoE(edgeName, OUT)
@@ -48,11 +48,11 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
     ontoE(edgeName, IN)
 
   private def ontoE(edgeName: String, dir: Direction): Traverser[State[Vertex],State[Edge],Edge] =
-    Traverser(for {
+    for {
       State((head: Vertex) :: rest) <- getState[State[Vertex]]
       edge <- streamToTraverser[State[Vertex],Edge](head.getEdges(dir, edgeName).toStream)
       _ <- extendPath[Vertex,Edge](edge)
-    } yield edge)
+    } yield edge
 
   def outV(): Traverser[State[Edge],State[Vertex],Vertex] =
     ontoV(OUT)
@@ -61,14 +61,14 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
     ontoV(IN)
 
   private def ontoV(dir: Direction): Traverser[State[Edge],State[Vertex],Vertex] =
-    Traverser(for {
+    for {
       State((head: Edge) :: rest) <- getState[State[Edge]]
       vertex = head.getVertex(dir)
       _ <- extendPath[Edge,Vertex](vertex)
-    } yield vertex)
+    } yield vertex
 
   def property[X,A](name: String): Traverser[X,X,A] =
-    Traverser(for {
+    for {
       State(head :: rest) <- getState[X]
-    } yield head.getProperty(name).asInstanceOf[A])
+    } yield head.getProperty(name).asInstanceOf[A]
 }

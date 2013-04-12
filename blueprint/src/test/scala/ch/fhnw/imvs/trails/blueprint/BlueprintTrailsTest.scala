@@ -26,6 +26,11 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr1 = V ~ out("e").* ~ out("f").? ~ out("g") ~ out("e")
 
+    val expr2 = for {
+      v <- V
+      oe1 <- many1(out("e"))
+    } yield v
+
     val paths = Traverser.run(expr0, graph).map(_._1)
 
     assert(paths.size === 1)
