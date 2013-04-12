@@ -2,18 +2,16 @@ package ch.fhnw.imvs.trails.parser
 
 import ch.fhnw.imvs.trails.Trails
 
-/*
-object TrailsParser extends Trails {
-  type Environment = Unit
-  type PathElement = Char
 
-  type Parser[A] = Traverser[Char,Char,A]
+object TrailsParser extends Trails {
+
+  type Parser[A] = Tr[Unit,List[Char],List[Char],A]
 
   def item: Parser[Char] =
-    Traverser(env => state => state match {
-      case State(c :: cs) => Stream((State(cs),c))
-      case State(Nil) => Stream()
-    })
+    env => s => s.toList match {
+      case c :: cs => Stream((cs,c))
+      case Nil => Stream()
+    }
    /* for {
       s <- getState if s.path.nonEmpty
       _ <- setState(s.copy(path = s.path.tail))
@@ -27,4 +25,3 @@ object TrailsParser extends Trails {
   def alphanum: Parser[Char] = digit | letter
 }
 
-*/

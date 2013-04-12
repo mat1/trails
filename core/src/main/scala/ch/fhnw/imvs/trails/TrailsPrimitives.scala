@@ -1,9 +1,22 @@
 package ch.fhnw.imvs.trails
 
 trait TrailsPrimitives { self: Trails =>
+  /** Type of a single element in the graph. Typically a common super type of Vertex and Edge. */
+  type PathElement
   type Edge <: PathElement
   type Vertex <: PathElement
   type Id
+  type Environment
+  type Traverser[I,O,A] = Tr[Environment,I,O,A]
+
+  type Path = List[PathElement]
+  final case class State[+Head <: PathElement](path: Path)
+  // final case class State[+Head <: PathElement](head: Head, tail: List[PathElement])
+
+  object Traverser {
+    def run[P <: PathElement,A](tr: Traverser[State[Nothing],State[P],A], env: Environment): Stream[(Path,A)] =
+      tr(env)(State[Nothing](Nil)).map { case (s,a) => (s.path.reverse, a) }
+  }
 
   def V(): Traverser[State[Nothing],State[Vertex],Vertex]
 
@@ -33,21 +46,21 @@ trait TrailsPrimitives { self: Trails =>
   def in(edgeName: String): Traverser[State[Vertex],State[Vertex],Vertex] =
     inE(edgeName) ~> outV()
 
-  def property[X,A](name: String): Traverser[X,X,A]
+  def property[S,A](name: String): Traverser[S,S,A]
 
-  def has[X,A](name: String, value: A): Traverser[X,X,A] =
-    property[X,A](name).filter(_ == value)
+  def has[S,A](name: String, value: A): Traverser[S,S,A] =
+    property[S,A](name).filter(_ == value)
 
   final def extendPath[I <: PathElement, O <: PathElement](p: O): Traverser[State[I],State[O],Unit] =
     updateState(s => s.copy(path = p :: s.path))
 
-  final def streamToTraverser[X,A](s: Stream[A]): Traverser[X,X,A] = {
+  final def streamToTraverser[S,A](s: Stream[A]): Traverser[S,S,A] = {
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
-    type TXXA = Traverser[X,X,A]
-    def lazyFoldRight(xs: Stream[TXXA])(combine: (TXXA, =>TXXA) => TXXA, base: TXXA): TXXA =
+    type TSSA = Traverser[S,S,A]
+    def lazyFoldRight(xs: Stream[TSSA])(combine: (TSSA, =>TSSA) => TSSA, base: TSSA): TSSA =
       if (xs.isEmpty) base
       else combine(xs.head, lazyFoldRight(xs.tail)(combine, base))
 
-    lazyFoldRight(s.map(success[X,A]))(choice[X,X,A], fail)
+    lazyFoldRight(s.map(success[Environment,S,A]))(choice[Environment,S,S,A], fail)
   }
 }

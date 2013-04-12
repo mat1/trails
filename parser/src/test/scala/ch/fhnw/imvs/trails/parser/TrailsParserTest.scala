@@ -1,14 +1,14 @@
 package ch.fhnw.imvs.trails.parser
-/*
+
 import org.scalatest.FunSuite
 import TrailsParser._
 
 class TrailsParserTest extends FunSuite {
   test("item") {
-    def applyItem(s: String): Stream[(State,Char)] =
-      item(())(State(s.toList))
+    def applyItem(s: String): Stream[(List[Char],Char)] =
+      item(())(s.toList)
 
-    assert(applyItem("abc") contains ((State("bc".toList), 'a')))
+    assert(applyItem("abc") contains (("bc".toList, 'a')))
     assert(applyItem("abc").size === 1)
     assert(applyItem("").isEmpty)
   }
@@ -23,12 +23,11 @@ class TrailsParserTest extends FunSuite {
       Email(n, domain.mkString, top.mkString)
     }
 
-    def applyEmail(s: String): Stream[(State,Email)] = email(())(State(s.toList)).filter{ case (State(rest),_) => rest.isEmpty}
+    def applyEmail(s: String): Stream[(List[Char],Email)] = email(())(s.toList).filter{ case (rest,_) => rest.isEmpty}
 
     assert(applyEmail("daniel.kroeni@fhnw.ch").size === 1)
-    assert(applyEmail("daniel.kroeni@fhnw.ch") contains ((State(Nil), Email("daniel.kroeni", "fhnw", "ch"))))
+    assert(applyEmail("daniel.kroeni@fhnw.ch") contains ((Nil, Email("daniel.kroeni", "fhnw", "ch"))))
 
     assert(applyEmail("daniel.kroeni@fhnw-ch").size === 0)
   }
 }
-*/

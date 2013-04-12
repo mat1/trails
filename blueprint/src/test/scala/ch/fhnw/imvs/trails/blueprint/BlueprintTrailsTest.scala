@@ -24,7 +24,7 @@ class BlueprintTrailsTest extends FunSuite {
 
     val expr0 = V ~ out("e") ~ out("f") ~ out("g") ~ out("e")
 
-    val expr1 = V ~ out("e").* ~ out("f").? ~ out("g") ~ out("e")
+    val expr1 = V ~ out("e").* ~ out("f").? ~ (out("g")|in("e")).+ ~ out("e")
 
     val expr2 = for {
       v <- V
