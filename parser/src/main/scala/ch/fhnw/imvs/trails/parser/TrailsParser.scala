@@ -8,17 +8,12 @@ object TrailsParser extends Trails {
   type Parser[A] = Tr[Unit,List[Char],List[Char],A]
 
   def item: Parser[Char] =
-    env => s => s.toList match {
+    env => s => s match {
       case c :: cs => Stream((cs,c))
       case Nil => Stream()
     }
-   /* for {
-      s <- getState if s.path.nonEmpty
-      _ <- setState(s.copy(path = s.path.tail))
-    } yield s.path.head */
 
   def sat(p: Char => Boolean): Parser[Char] = filter(item)(p)
-
   def char(c: Char): Parser[Char] = sat(_ == c)
   def digit: Parser[Char] = sat(_.isDigit)
   def letter: Parser[Char] = sat(_.isLetter)
