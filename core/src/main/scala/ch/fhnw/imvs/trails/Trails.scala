@@ -15,7 +15,7 @@ trait Trails { self =>
     def <~[P,B](t2: Tr[E,O,P,B]): Tr[E,I,P,A] = self.map(seq(t1, t2)){ case a ~ b => a }
     def |(t2: => Tr[E,I,O,A]): Tr[E,I,O,A] = self.choice(t1, t2)
 
-    def ^^[B](f: A => B): Tr[E,I,O,B] = self.map(t1)(f)
+    def ^^[B](f: A => B): Tr[E,I,O,B] = self.map[E,I,O,A,B](t1)(f)
 
     def flatMap[P,B](f: A => Tr[E,O,P,B]): Tr[E,I,P,B] = self.flatMap(t1)(f)
     def map[B](f: A => B): Tr[E,I,O,B] = self.map(t1)(f)

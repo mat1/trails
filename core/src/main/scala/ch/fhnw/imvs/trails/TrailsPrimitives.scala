@@ -46,11 +46,6 @@ trait TrailsPrimitives { self: Trails =>
   def in(edgeName: String): Traverser[State[Vertex],State[Vertex],Vertex] =
     inE(edgeName) ~> outV()
 
-  def property[S,A](name: String): Traverser[S,S,A]
-
-  def has[S,A](name: String, value: A): Traverser[S,S,A] =
-    property[S,A](name).filter(_ == value)
-
   final def extendPath[I <: PathElement, O <: PathElement](p: O): Traverser[State[I],State[O],Unit] =
     updateState(s => s.copy(path = p :: s.path))
 
@@ -63,4 +58,6 @@ trait TrailsPrimitives { self: Trails =>
 
     lazyFoldRight(s.map(success[Environment,S,A]))(choice[Environment,S,S,A], fail)
   }
+
+  def get[A](name: String)(e: PathElement): A
 }

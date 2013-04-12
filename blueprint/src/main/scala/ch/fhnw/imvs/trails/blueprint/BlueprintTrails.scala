@@ -68,8 +68,5 @@ object BlueprintTrails extends TrailsPrimitives with Trails {
       _ <- extendPath[Edge,Vertex](v)
     } yield v
 
-  def property[S,A](name: String): Traverser[S,S,A] =
-    for {
-      State(head :: rest) <- getState[Graph,S]
-    } yield head.getProperty(name).asInstanceOf[A]
+  def get[T](name: String)(e: PathElement): T = e.getProperty[T](name)
 }
