@@ -19,4 +19,3 @@ object TrailsParser extends Trails {
   def letter: Parser[Char] = sat(_.isLetter)
   def alphanum: Parser[Char] = digit | letter
 }
-

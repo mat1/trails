@@ -1,5 +1,5 @@
 package ch.fhnw.imvs.trails.neo4j
-/*
+
 import org.scalatest.FunSuite
 import ch.fhnw.imvs.trails.neo4j.Neo4jTrails._
 import org.neo4j.test.TestGraphDatabaseFactory
@@ -31,32 +31,6 @@ class Neo4jTrailsTest extends FunSuite {
     }
   }
 
-  test("Cycles") {
-    withNeo4jGraph { graph =>
-      val v0 = graph.createNode()
-
-      val eType = withName("e")
-      val fType = withName("f")
-
-      val e0 = v0.createRelationshipTo(v0, eType)
-      val f0 = v0.createRelationshipTo(v0, fType)
-      val f1 = v0.createRelationshipTo(v0, fType)
-
-      val expr0 = V(v0.getId) ~ (out("e").+ ~ out("f")).+
-
-      val paths = Traverser.run(expr0, graph).take(4).map(_._1)
-
-      assert(paths.size === 4)
-
-      println(paths.toList)
-
-      /*  assert(paths.contains(List(v0, e0, v0, f1, v0)))
-        assert(paths.contains(List(v0, e0, v0, f1, v0, e0, v0, f0, v0)))
-        assert(paths.contains(List(v0, e0, v0, f0, v0)))
-        assert(paths.contains(List(v0, e0, v0, f0, v0, e0, v0, f1, v0))) */
-    }
-  }
-
   test("Simple pattern") {
     withNeo4jGraph { graph =>
       val v0 = graph.createNode()
@@ -79,5 +53,3 @@ class Neo4jTrailsTest extends FunSuite {
     }
   }
 }
-
-*/
