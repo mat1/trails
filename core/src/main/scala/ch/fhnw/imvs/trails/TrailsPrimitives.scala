@@ -48,11 +48,11 @@ trait TrailsPrimitives { self: Trails =>
 
   final def streamToTraverser[S<: Elem,A](s: Stream[A]): Tr[Env, State[S],State[S],A] = {
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
-    def lazyFoldRight(xs: Stream[Tr[Env, State[S],State[S],A]]): Tr[Env, State[S],State[S],A] =
+    def rec(xs: Stream[Tr[Env, State[S],State[S],A]]): Tr[Env, State[S],State[S],A] =
       if (xs.isEmpty) fail
-      else choice(xs.head, lazyFoldRight(xs.tail))
+      else choice(xs.head, rec(xs.tail))
 
-    lazyFoldRight(s.map(success[Env,State[S],A]))
+    rec(s.map(success[Env,State[S],A]))
   }
 
   def get[A](name: String)(e: Elem): A
