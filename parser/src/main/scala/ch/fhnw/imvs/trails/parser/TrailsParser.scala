@@ -16,5 +16,6 @@ object TrailsParser extends Trails {
   def char(c: Char): Parser[Char] = sat(_ == c)
   def digit: Parser[Char] = sat(_.isDigit)
   def letter: Parser[Char] = sat(_.isLetter)
-  def alphanum: Parser[Char] = digit | letter
+  def alphanum: Parser[Char] = map(digit | letter) { case <|(a) => a
+  case |>(a) => a }
 }

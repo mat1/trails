@@ -43,8 +43,8 @@ class BlueprintTrailsTest extends FunSuite with ShouldMatchers {
 
     assert(res.size === 2)
 
-    val (List(`v0`, `e0`, `v1`), `v0` ~ `e0` ~ `v1`) = res.head
-    val (List(`v0`, `e1`, `v2`), `v0` ~ `e1` ~ `v2`) = res.tail.head
+    val (List(`v0`, `e0`, `v1`), `v0` ~ <|(`e0`) ~ `v1`) = res.head
+    val (List(`v0`, `e1`, `v2`), `v0` ~ |>(`e1`) ~ `v2`) = res.tail.head
   }
 
   test("Simple pattern") {

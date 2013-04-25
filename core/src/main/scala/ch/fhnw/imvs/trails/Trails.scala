@@ -12,7 +12,7 @@ trait Trails { self =>
     def ~[P,B](t2: Tr[E,O,P,B]): Tr[E,I,P,A~B] = self.seq(t1, t2)
     def ~>[P,B](t2: Tr[E,O,P,B]): Tr[E,I,P,B] = self.map(seq(t1, t2)){ case a ~ b => b }
     def <~[P,B](t2: Tr[E,O,P,B]): Tr[E,I,P,A] = self.map(seq(t1, t2)){ case a ~ b => a }
-    def |(t2: => Tr[E,I,O,A]): Tr[E,I,O,A] = self.choice(t1, t2)
+    def |[B](t2: => Tr[E,I,O,B]): Tr[E,I,O,A|B] = self.choice(t1, t2)
 
     def ^^[B](f: A => B): Tr[E,I,O,B] = self.map[E,I,O,A,B](t1)(f)
 
@@ -36,9 +36,9 @@ trait Trails { self =>
   final case class ~[+A,+B](a: A, b: B) {
     override def toString: String = s"$a ~ $b"
   } // Product
-  sealed trait <|>[+A,+B] // Sum
-  final case class <|[A](a: A) extends <|>[A,Nothing]
-  final case class |>[B](a: B) extends <|>[Nothing,B]
+  sealed trait |[+A,+B] // Sum
+  final case class <|[A](a: A) extends |[A,Nothing]
+  final case class |>[B](a: B) extends |[Nothing,B]
 
   /* Monadic API. */
   final def flatMap[E,I,M,O,A,B](tr: Tr[E,I,M,A])(f: A => Tr[E,M,O,B]): Tr[E,I,O,B] =
@@ -57,8 +57,8 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  final def choice[E,I,O,A](either: Tr[E,I,O,A], or: => Tr[E,I,O,A]): Tr[E,I,O,A] =
-    e => i => either(e)(i) #::: or(e)(i)
+  final def choice[E,I,O,A,B](either: Tr[E,I,O,A], or: => Tr[E,I,O,B]): Tr[E,I,O,A|B] =
+    e => i => (map[E,I,O,A,A|B](either) { a => new <|(a) }(e)(i)) #::: map[E,I,O,B,A|B](or) { a => new |>(a) }(e)(i)
 
   /** A traverser that always fails. */
   final def fail[E,S]: Tr[E,S,S,Nothing] =
@@ -106,7 +106,10 @@ trait Trails { self =>
     * @return a traverser which optionally follows the given traverser
     */
   final def opt[E,S,A](tr: Tr[E,S,S,A]): Tr[E,S,S,Option[A]] =
-    choice(success(None), map(tr)(Some(_)))
+    map[E,S,S,Option[A]|Option[A],Option[A]](choice(success(None), map(tr)(Some(_)))){
+      case <|(a) => a
+      case |>(a) => a
+    }
 
 
   /** Returns a traverser which repeats the given traverser 0..* times.
@@ -114,7 +117,10 @@ trait Trails { self =>
     * @return a traverser which repeats the given traverserN
     */
   final def many[E,S,A](tr: Tr[E,S,S,A]): Tr[E,S,S,Stream[A]] =
-    choice(success(Stream()), many1(tr))
+    map[E,S,S,Stream[A]|Stream[A], Stream[A]](choice(success(Stream()), many1(tr))){
+      case <|(a) => a
+      case |>(a) => a
+    }
 
   /*
     final def many[A](tr: Tr[A]): Tr[Stream[A]]=
