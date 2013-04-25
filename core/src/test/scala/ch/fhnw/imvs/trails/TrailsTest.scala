@@ -12,7 +12,7 @@ class TrailsTest extends FunSuite {
     val res0 = t0(null)(null)
 
     assert(res0.size === 1)
-    val (s0, fst ~ snd) = res0.head
+    val (_, fst ~ snd) = res0.head
     assert(fst === "fst")
     assert(snd === "snd")
   }
@@ -40,13 +40,13 @@ class TrailsTest extends FunSuite {
     val t0: Tr[Null,Null,Null,String] = choice(success("left"), T.fail)
     val res0 = t0(null)(null)
     assert(res0.size === 1)
-    val (s0, v0) = res0.head
+    val (_, v0) = res0.head
     assert(v0 === "left")
 
     val t1: Tr[Null,Null,Null,String] = choice(T.fail, success("right"))
     val res1 = t1(null)(null)
     assert(res1.size === 1)
-    val (s1, v1) = res1.head
+    val (_, v1) = res1.head
     assert(v1 === "right")
   }
 

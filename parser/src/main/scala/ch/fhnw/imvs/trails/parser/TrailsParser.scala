@@ -2,7 +2,6 @@ package ch.fhnw.imvs.trails.parser
 
 import ch.fhnw.imvs.trails.Trails
 
-
 object TrailsParser extends Trails {
 
   type Parser[A] = Tr[Unit,List[Char],List[Char],A]
