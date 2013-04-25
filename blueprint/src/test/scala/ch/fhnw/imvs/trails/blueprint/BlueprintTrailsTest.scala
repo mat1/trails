@@ -29,13 +29,6 @@ class BlueprintTrailsTest extends FunSuite with ShouldMatchers {
     assert(rv1 === v1)
   }
 
-  implicit class InfixMatcher[I](i: I) {
-    def matches(pf: PartialFunction[I,Any]): Boolean = pf.isDefinedAt(i)
-  }
-
-  def pattern[I](pf: PartialFunction[I,Any])(i: I): Boolean = pf.isDefinedAt(i)
-
-
   test("Example") {
     val graph = new TinkerGraph()
     val v0 = graph.addVertex("v0")
@@ -50,11 +43,8 @@ class BlueprintTrailsTest extends FunSuite with ShouldMatchers {
 
     assert(res.size === 2)
 
-    assert(res.exists( _ matches {case (List(`v0`, `e0`, `v1`), `v0` ~ `e0` ~ `v1`) => }))
-    assert(res.exists( _ matches {case (List(`v0`, `e1`, `v2`), `v0` ~ `e1` ~ `v2`) => }))
-
-   // val (List(`v0`, `e0`, `v1`), `v0` ~ `e0` ~ `v1`) = res.head
-   // val (List(`v0`, `e1`, `v2`), `v0` ~ `e1` ~ `v2`) = res.tail.head
+    val (List(`v0`, `e0`, `v1`), `v0` ~ `e0` ~ `v1`) = res.head
+    val (List(`v0`, `e1`, `v2`), `v0` ~ `e1` ~ `v2`) = res.tail.head
   }
 
   test("Simple pattern") {
