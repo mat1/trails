@@ -57,7 +57,7 @@ trait Trails { self =>
     * @param or one of the traverser to follow
     * @return the parallel composition of the two given traversers
     */
-  final def choice[E,I,O,A](either: => Tr[E,I,O,A], or: => Tr[E,I,O,A]): Tr[E,I,O,A] =
+  final def choice[E,I,O,A](either: Tr[E,I,O,A], or: => Tr[E,I,O,A]): Tr[E,I,O,A] =
     e => i => either(e)(i) #::: or(e)(i)
 
   /** A traverser that always fails. */
@@ -78,7 +78,7 @@ trait Trails { self =>
     flatMap(getState[E,I])(i => setState(f(i)))
 
   // Every monad is a functor
-  final def map[E,I,O,A,B](tr: => Tr[E,I,O,A])(f: A => B): Tr[E,I,O,B] =
+  final def map[E,I,O,A,B](tr: Tr[E,I,O,A])(f: A => B): Tr[E,I,O,B] =
     flatMap(tr)(a => success(f(a)))
 
   // filter can be implemented for any monad plus instance
