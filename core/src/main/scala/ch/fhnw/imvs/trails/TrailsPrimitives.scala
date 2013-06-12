@@ -50,7 +50,10 @@ trait TrailsPrimitives { self: Trails =>
     // Requires custom lazyFoldRight because Stream#foldRight is not lazy
     def rec(xs: Stream[Tr[Env, State[S],State[S],A]]): Tr[Env, State[S],State[S],A] =
       if (xs.isEmpty) fail
-      else choice(xs.head, rec(xs.tail))
+      else map(choice(xs.head, rec(xs.tail))){
+        case <|(a) => a
+        case |>(a) => a
+      }
 
     rec(s.map(success[Env,State[S],A]))
   }

@@ -1,4 +1,4 @@
-trails minimal [![Build Status](https://secure.travis-ci.org/danielkroeni/trails.png?branch=minimal)](http://travis-ci.org/danielkroeni/trails)
+trails sum_choice [![Build Status](https://secure.travis-ci.org/danielkroeni/trails.png?branch=sum_choice)](http://travis-ci.org/danielkroeni/trails)
 ======
 
 Purely functional graph traversal combinators written in Scala.
